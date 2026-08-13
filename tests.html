@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Inventory — tests</title>
+<style>
+  body { font: 14px/1.5 ui-monospace, "SF Mono", Menlo, monospace; background: #14171c; color: #e8eaed; margin: 0; padding: 24px; }
+  h1 { font-family: -apple-system, sans-serif; font-size: 20px; margin: 0 0 4px; }
+  h2 { font-family: -apple-system, sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: #a8adb8; margin: 28px 0 8px; border-bottom: 1px solid #2e3440; padding-bottom: 4px; }
+  #summary { position: sticky; top: 0; background: #1b1f26; border: 1px solid #2e3440; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 15px; }
+  #summary.all-pass { border-color: #4ade80; }
+  #summary.has-fail { border-color: #f87171; }
+  .row { padding: 3px 0; white-space: pre-wrap; word-break: break-word; }
+  .pass { color: #4ade80; }
+  .fail { color: #f87171; font-weight: 600; }
+  .detail { color: #6b7280; margin-left: 20px; }
+</style>
+</head>
+<body>
+<h1>Inventory — unit tests</h1>
+<div id="summary">Running…</div>
+<div id="results"></div>
+
+<script type="module">
+import * as db from "./db.js";
+import { dictionaryKeys } from "./i18n.js";
+
+const results = document.getElementById("results");
+let pass = 0;
+let fail = 0;
+let currentSection = null;
+
+function section(name) {
+  currentSection = name;
+  const h = document.createElement("h2");
+  h.textContent = name;
+  results.appendChild(h);
+}
+
+function stableStringify(v) {
+  return JSON.stringify(v, (_, val) => {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      return Object.keys(val)
+        .sort()
+        .reduce((acc, k) => ((acc[k] = val[k]), acc), {});
+    }
+    return val;
+  });
+}
+
+/** assertEqual(actual, expected, label) — deep-compares actual vs expected
+ * (key order ignored for objects) and renders a PASS/FAIL row. `label`
+ * should say *why* this must hold, not just what is being checked. */
+function assertEqual(actual, expected, label) {
+  const ok = stableStringify(actual) === stableStringify(expected);
+  const row = document.createElement("div");
+  row.className = "row";
+  if (ok) {
+    pass++;
+    row.innerHTML = `<span class="pass">PASS</span> ${label}`;
+  } else {
+    fail++;
+    row.innerHTML =
+      `<span class="fail">FAIL</span> ${label}\n` +
+      `<span class="detail">expected: ${stableStringify(expected)}\n         actual: ${stableStringify(actual)}</span>`;
+  }
+  results.appendChild(row);
+}
+
+function assertTrue(actual, label) {
+  assertEqual(!!actual, true, label);
+}
+
+function finish() {
+  const summary = document.getElementById("summary");
+  summary.textContent = `${pass + fail} assertions — ${pass} passed, ${fail} failed`;
+  summary.className = fail === 0 ? "all-pass" : "has-fail";
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// normalisers — malformed and retired-value paths, not just the happy path
+// ══════════════════════════════════════════════════════════════════════
+
+section("normalizeType / normalizeKind");
+assertEqual(db.normalizeType("container"), "container", "a valid type passes through unchanged");
+assertEqual(db.normalizeType("location"), "location", "a valid type passes through unchanged");
+assertEqual(db.normalizeType("gadget"), "item", "an unknown type falls back to item, the most general bucket — never throws");
+assertEqual(db.normalizeType(undefined), "item", "a missing type falls back to item rather than crashing hydration");
+assertEqual(db.normalizeKind("record"), "record", "record passes through");
+assertEqual(db.normalizeKind("event"), "event", "the event axis is normalized correctly even though this app never creates one");
+assertEqual(db.normalizeKind(undefined), "record", "a missing kind normalizes to record — rows written before the axis existed must read as records");
+
+section("normalizeTitle / normalizeComment / normalizeCategory");
+assertEqual(db.normalizeTitle("  Resistor kit  ", 100), "Resistor kit", "titles are trimmed");
+assertEqual(db.normalizeTitle("x".repeat(150), 100), "x".repeat(100), "a title longer than the cap is truncated, not rejected");
+assertEqual(db.normalizeTitle(42, 100), "", "a non-string title normalizes to empty rather than throwing");
+assertEqual(db.normalizeComment("  notes  "), "notes", "comments are trimmed");
+assertEqual(db.normalizeCategory("  Displays  "), "displays", "categories are lowercased so 'Displays' and 'displays' are the same filter value");
+
+section("normalizeQuantity");
+assertEqual(db.normalizeQuantity(5), 5, "a valid positive integer passes through");
+assertEqual(db.normalizeQuantity(0), 1, "zero is not a valid quantity — falls back to 1");
+assertEqual(db.normalizeQuantity(-3), 1, "a negative quantity falls back to 1");
+assertEqual(db.normalizeQuantity("7"), 7, "a numeric string parses");
+assertEqual(db.normalizeQuantity("abc"), 1, "a non-numeric string falls back to 1, not NaN");
+assertEqual(db.normalizeQuantity(3.9), 3, "a fractional quantity truncates rather than rounding — a count is always whole");
+
+section("normalizeCode / normalizeStatus / normalizeItemState / normalizeSource");
+assertEqual(db.normalizeCode("box-001"), "BOX-001", "codes are uppercased");
+assertEqual(db.normalizeCode(" box 001! "), "BOX001", "spaces and punctuation outside A-Z0-9_- are stripped, not rejected");
+assertEqual(db.normalizeCode("x".repeat(50)), "X".repeat(32), "codes are capped at 32 characters");
+assertEqual(db.normalizeStatus("drafted"), "drafted", "a valid status passes through");
+assertEqual(db.normalizeStatus("archived"), "captured", "a retired/unknown status resolves to the safe starting value, captured");
+assertEqual(db.normalizeItemState("draft"), "draft", "a valid item state passes through");
+assertEqual(db.normalizeItemState("pending"), "confirmed", "an unknown item state falls back to confirmed, not a half-drafted state");
+assertEqual(db.normalizeSource("ai"), "ai", "a valid source passes through");
+assertEqual(db.normalizeSource("import"), "manual", "an unrecognised source falls back to manual");
+
+section("normalizeTags");
+assertEqual(db.normalizeTags(["Cable", "cable", "  Power  "]), ["cable", "power"], "tags are lowercased and deduplicated case-insensitively");
+assertEqual(db.normalizeTags(["", "  ", "ok"]), ["ok"], "blank tags are dropped");
+assertEqual(db.normalizeTags(Array.from({ length: 30 }, (_, i) => `t${i}`)).length, 20, "the tag list is capped at 20 so one wild import can't blow up every row");
+assertEqual(db.normalizeTags("not-an-array"), [], "a non-array value normalizes to an empty list rather than throwing");
+
+section("normalizeLinkedIds");
+assertEqual(db.normalizeLinkedIds(["a", "b", "a"]), ["a", "b"], "linkedIds are deduplicated");
+assertEqual(db.normalizeLinkedIds(["a", "", 5, null]), ["a"], "non-string / empty entries are dropped");
+
+section("normalizeFields (structured key/value fields)");
+{
+  const result = db.normalizeFields([{ key: " Part# ", value: " MCP2515 " }]);
+  assertEqual({ key: result[0].key, value: result[0].value }, { key: "Part#", value: "MCP2515" }, "key and value are trimmed");
+  assertTrue(!!result[0].id, "an id is assigned when missing");
+}
+assertEqual(db.normalizeFields([{ key: "", value: "x" }]), [], "an entry with no key is dropped — a value with nothing labelling it can't be searched");
+{
+  const result = db.normalizeFields([{ key: "k", value: "v" }, "garbage", null]);
+  assertEqual(result.length, 1, "non-object entries in the array are skipped, not thrown on");
+  assertEqual({ key: result[0].key, value: result[0].value }, { key: "k", value: "v" }, "the one well-formed entry survives");
+}
+assertEqual(db.normalizeFields(Array.from({ length: 60 }, (_, i) => ({ key: `k${i}`, value: "v" }))).length, 40, "fields are capped at 40 per record");
+assertEqual(db.normalizeFields([{ key: "k", value: "x".repeat(600) }])[0].value.length, 500, "a field value is capped at 500 characters");
+
+section("normalizeLinks");
+assertEqual(db.normalizeLinks([{ label: "Datasheet", url: "https://example.com/ds.pdf" }])[0].url, "https://example.com/ds.pdf", "a well-formed link keeps its url");
+assertEqual(db.normalizeLinks([{ label: "bad", url: "" }]), [], "a link with no url is dropped — a link exists to be opened");
+assertEqual(db.normalizeLinks([{ url: "https://x.test" }])[0].label, "", "a missing label defaults to empty rather than throwing");
+
+section("normalizeAttachments");
+assertEqual(db.normalizeAttachments([{ mediaId: "m1", filename: "a.jpg" }])[0].mediaId, "m1", "a well-formed attachment keeps its mediaId");
+assertEqual(db.normalizeAttachments([{ filename: "no-media-id.jpg" }]), [], "an attachment with no mediaId is dropped — it would point at nothing in the media store");
+assertEqual(db.normalizeAttachments([{ mediaId: "m1" }])[0].size, 0, "a missing size defaults to 0, not undefined");
+
+section("normalizeUrl / stripTrackingParams");
+assertEqual(
+  db.stripTrackingParams("https://example.com/x?utm_source=ig&id=42&fbclid=abc"),
+  "https://example.com/x?id=42",
+  "known tracking params are stripped; the params that actually identify the resource survive",
+);
+assertEqual(db.stripTrackingParams("https://example.com/x?id=42"), "https://example.com/x?id=42", "a url with nothing to strip round-trips unchanged");
+assertEqual(db.stripTrackingParams("not a url at all"), "not a url at all", "an unparsable string is returned trimmed as-is, never thrown on — a bad paste shouldn't crash the save");
+assertEqual(db.stripTrackingParams(""), "", "an empty url normalizes to empty");
+assertEqual(db.stripTrackingParams(42), "", "a non-string input normalizes to empty rather than throwing");
+
+section("normalizeSearchText / buildHaystack");
+assertEqual(db.normalizeSearchText("Weerstand ëën"), "weerstand een", "diacritics are stripped and case is folded, so a plain-ASCII search still finds accented Dutch text");
+assertEqual(db.normalizeSearchText("  MCP2515   module "), "mcp2515 module", "whitespace is collapsed and trimmed");
+{
+  const container = db.hydrateRecord({ type: "container", code: "box-011", title: "CAN bus kit" });
+  assertTrue(db.buildHaystack(container).includes("box-011"), "a container's haystack includes its code, lowercased, so 'BOX-011' is findable by typing 'box'");
+}
+{
+  const item = db.hydrateRecord({ type: "item", title: "MCP2515 module", category: "microcontrollers", fields: [{ key: "part", value: "MCP2515-I/P" }] });
+  assertTrue(db.buildHaystack(item).includes("mcp2515-i/p"), "an item's haystack includes structured field values — a part number exists to be found");
+  assertTrue(db.buildHaystack(item).includes("microcontrollers"), "an item's haystack includes its category");
+}
+{
+  const location = db.hydrateRecord({ type: "location", room: "Bureau Chris", storage: "Hoog Rek Links", section: "Plank 3" });
+  assertTrue(db.buildHaystack(location).includes("hoog rek links"), "a location's haystack includes room/storage/section, since that hierarchy IS the searchable content");
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// hydrateRecord — the read-time migration safety net
+// ══════════════════════════════════════════════════════════════════════
+
+section("hydrateRecord");
+{
+  const r = db.hydrateRecord({});
+  assertTrue(!!r.id, "an empty raw record still gets a valid id — hydration never produces an unusable row");
+  assertEqual(r.type, "item", "an empty raw record defaults to type item");
+  assertEqual(r.deletedAt, null, "deletedAt defaults to null, never a stray string");
+  assertEqual(r.tags, [], "tags default to an empty array, never undefined — callers never need a ?? guard");
+  assertEqual(r.linkedIds, [], "linkedIds default to an empty array");
+  assertEqual(r.fields, [], "fields default to an empty array");
+}
+{
+  const r = db.hydrateRecord({ createdAt: "2026-01-01T00:00:00.000Z" });
+  assertEqual(r.updatedAt, r.createdAt, "when updatedAt is missing, it falls back to createdAt — NEVER to now() — or every device would believe it holds the newest copy of everything");
+}
+{
+  const r = db.hydrateRecord(null);
+  assertTrue(!!r.id, "hydrateRecord(null) does not throw — it returns a fully-defaulted record");
+}
+{
+  const r = db.hydrateRecord({ type: "container", code: "box-1", status: "retired-value", quantity: -5 });
+  assertEqual(r.code, "BOX-1", "a container's code is normalized on hydration");
+  assertEqual(r.status, "captured", "a retired status value resolves to the current default rather than falling through to undefined");
+  assertTrue(!("quantity" in r), "a container record carries no item-only fields");
+}
+{
+  const r = db.hydrateRecord({ type: "item", quantity: "12", category: "  Cables  ", state: "draft", source: "ai" });
+  assertEqual(r.quantity, 12, "an item's quantity is normalized on hydration");
+  assertEqual(r.category, "cables", "an item's category is normalized on hydration");
+  assertEqual(r.state, "draft", "a valid item state survives hydration");
+}
+{
+  const r = db.hydrateRecord({ type: "location", room: "  Office  ", storage: "", section: "" });
+  assertEqual(r.room, "Office", "a location's room is trimmed on hydration");
+  assertEqual(r.storage, "", "an empty optional location level stays empty, not null — 26 of the real shelf map's locations have no storage/section level");
+}
+
+section("makeRecord");
+{
+  const r1 = db.makeRecord({ type: "container", code: "box-2" });
+  assertEqual(r1.createdAt, r1.updatedAt, "a freshly made record has createdAt === updatedAt");
+  assertEqual(r1.code, "BOX-2", "makeRecord runs fields through the same normalization as hydrateRecord — one source of truth for a valid record");
+  const r2 = db.makeRecord({ type: "container", code: "box-2" });
+  assertTrue(r1.id !== r2.id, "two records made separately never share an id");
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// query engine
+// ══════════════════════════════════════════════════════════════════════
+
+section("makeComparator");
+{
+  const rows = [{ title: "BOX-2" }, { title: "BOX-10" }, { title: "BOX-1" }];
+  const sorted = [...rows].sort(db.makeComparator("title", "asc"));
+  assertEqual(
+    sorted.map((r) => r.title),
+    ["BOX-1", "BOX-2", "BOX-10"],
+    "sorting is natural/numeric-aware — BOX-10 sorts after BOX-2, not between BOX-1 and BOX-2 as a plain string sort would",
+  );
+}
+{
+  const rows = [{ title: "b", pinned: false }, { title: "a", pinned: true }];
+  const sorted = [...rows].sort(db.makeComparator("title", "asc", true));
+  assertEqual(sorted.map((r) => r.title), ["a", "b"], "pinnedFirst puts a pinned record ahead of an alphabetically-earlier one");
+}
+
+section("queryItemSet");
+{
+  const items = [
+    db.hydrateRecord({ id: "loc-1", type: "location", room: "Office", storage: "Cupboard" }),
+    db.hydrateRecord({ id: "c-1", type: "container", code: "BOX-001", title: "Cables", linkedIds: ["loc-1"] }),
+    db.hydrateRecord({ id: "c-2", type: "container", code: "BOX-002", title: "Sensors", linkedIds: [] }),
+    db.hydrateRecord({ id: "i-1", type: "item", title: "USB cable", category: "cables", linkedIds: ["c-1"], tags: ["usb"] }),
+    db.hydrateRecord({ id: "i-2", type: "item", title: "PIR sensor", category: "sensors", state: "draft", linkedIds: ["c-2"] }),
+    { ...db.hydrateRecord({ id: "i-3", type: "item", title: "Deleted thing", linkedIds: ["c-2"] }), deletedAt: "2026-01-01T00:00:00.000Z" },
+  ];
+
+  assertEqual(db.queryItemSet(items, {}).total, 5, "a deleted record is excluded from the default query — trash is opt-in, not opt-out");
+  assertEqual(db.queryItemSet(items, { onlyDeleted: true }).total, 1, "onlyDeleted returns exactly the tombstoned record");
+  assertEqual(db.queryItemSet(items, { type: "item" }).total, 2, "filtering by type returns only that type");
+  assertEqual(
+    db.queryItemSet(items, { linkedId: "c-2" }).results.map((r) => r.id).sort(),
+    ["i-2"],
+    "linkedId filters to records that reference that id — 'items in this container'",
+  );
+  assertEqual(db.queryItemSet(items, { category: "Cables" }).total, 1, "category filtering is case-insensitive");
+  assertEqual(db.queryItemSet(items, { itemState: "draft" }).total, 1, "itemState filters items by draft/confirmed");
+  assertEqual(db.queryItemSet(items, { tags: ["usb"] }).total, 1, "tag filtering matches records carrying any of the given tags");
+  assertEqual(db.queryItemSet(items, { search: "sensor" }).total, 2, "a text search matches both the sensor container and the sensor item");
+  assertEqual(db.queryItemSet(items, { search: "cupboard" }).total, 1, "a text search reaches into a location's storage field");
+
+  const paged = db.queryItemSet(items, { sortBy: "title", sortDir: "asc", offset: 1, limit: 2 });
+  assertEqual(paged.results.length, 2, "limit caps the page size");
+  assertEqual(paged.total, 5, "total reflects the full filtered set, not just the current page");
+  assertTrue(paged.hasMore, "hasMore is true when offset + limit < total");
+  const lastPage = db.queryItemSet(items, { sortBy: "title", sortDir: "asc", offset: 4, limit: 2 });
+  assertTrue(!lastPage.hasMore, "hasMore is false once the page reaches the end of the filtered set");
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// revision history — diff / restore / key ranges
+// ══════════════════════════════════════════════════════════════════════
+
+section("diffRecords / applyVersion");
+{
+  const a = db.hydrateRecord({ id: "x", type: "item", title: "Old name", quantity: 2, updatedAt: "2026-01-01T00:00:00.000Z" });
+  const b = db.hydrateRecord({ id: "x", type: "item", title: "New name", quantity: 2, updatedAt: "2026-02-01T00:00:00.000Z" });
+  const diff = db.diffRecords(a, b);
+  assertTrue("title" in diff, "a changed diffable field appears in the diff");
+  assertTrue(!("quantity" in diff), "an unchanged field never appears in the diff");
+  assertTrue(!("updatedAt" in diff), "envelope timestamps are never diffed — they are bookkeeping, not content");
+
+  const restored = db.applyVersion(b, a);
+  assertEqual(restored.title, "Old name", "applyVersion restores the diffable field from the snapshot");
+  assertEqual(restored.id, "x", "applyVersion never changes the id — restoring is an edit under the same identity, not a new record");
+  assertEqual(restored.updatedAt, b.updatedAt, "applyVersion leaves updatedAt untouched — the caller's normal write path bumps it");
+}
+{
+  const same = db.hydrateRecord({ id: "y", type: "item", title: "Same" });
+  assertEqual(db.diffRecords(same, same), {}, "diffing a record against itself produces an empty diff");
+}
+
+section("versionKey / versionKeyRange");
+assertEqual(db.versionKey("abc", 0), "abc#000000", "sequence numbers are zero-padded so lexicographic order matches chronological order");
+assertEqual(db.versionKey("abc", 12), "abc#000012", "padding is stable across sequence numbers");
+{
+  const range = db.versionKeyRange("abc");
+  assertTrue(range.includes("abc#000000"), "a version key for this record falls inside its own range");
+  assertTrue(!range.includes("abc1#000000"), "a different record whose id happens to share this one as a prefix is excluded — the '#' separator sorts before every key character");
+}
+
+section("locationPath / nextCode");
+assertEqual(db.locationPath({ room: "Office", storage: "Cupboard", section: "", title: "Shelf 1" }), "Office › Cupboard › Shelf 1", "blank levels are skipped, not rendered as empty segments");
+assertEqual(db.locationPath(null), "", "a missing location renders as an empty string, not a crash — a container can point at a deleted location");
+assertEqual(db.nextCode([], "BOX"), "BOX-001", "the first code for a prefix starts at 001");
+assertEqual(db.nextCode(["BOX-001", "BOX-002", "BOX-010"], "BOX"), "BOX-011", "the next code continues from the highest existing number, not the count of codes");
+assertEqual(db.nextCode(["BOX-005", "BAG-002"], "BAG"), "BAG-003", "codes under a different prefix are ignored");
+assertEqual(db.nextCode(["box-9"], "box"), "BOX-010", "prefix matching is case-insensitive since codes are always normalized uppercase");
+
+section("appendActivity");
+{
+  let log = [];
+  for (let i = 0; i < 5; i++) log = db.appendActivity(log, { n: i }, 3);
+  assertEqual(log.map((e) => e.n), [2, 3, 4], "the ring buffer keeps only the newest `cap` entries, oldest dropped first");
+}
+assertEqual(db.appendActivity([], { n: 1 }, 60).length, 1, "appending to an empty log works");
+
+// ══════════════════════════════════════════════════════════════════════
+// i18n — key parity between languages (cheap, prevents a raw key rendering)
+// ══════════════════════════════════════════════════════════════════════
+
+section("i18n dictionary parity");
+{
+  const { nl, en } = dictionaryKeys();
+  const onlyNl = nl.filter((k) => !en.includes(k));
+  const onlyEn = en.filter((k) => !nl.includes(k));
+  assertEqual(onlyNl, [], "every NL key also exists in EN — a missing translation would render as its own key name");
+  assertEqual(onlyEn, [], "every EN key also exists in NL");
+}
+
+finish();
+</script>
+</body>
+</html>

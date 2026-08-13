@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Inventory</title>
+<meta name="description" content="Local-first inventory for workshop storage." />
+<meta name="theme-color" content="#14171c" />
+<meta name="color-scheme" content="dark light" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./icons/icon-192.png" />
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+<div id="live-region" aria-live="polite" class="sr-only"></div>
+
+<div id="app" data-density="comfortable">
+  <header class="app-header">
+    <span class="app-logo" data-icon="items" data-icon-size="22"></span>
+    <h1 class="app-title" data-i18n="app.name"></h1>
+  </header>
+
+  <main id="view-container">
+
+    <!-- ===== Tab views (replace history) ===== -->
+
+    <section id="view-search" class="view view-tab" data-view>
+      <h1 data-i18n="view.search.title"></h1>
+      <input type="search" id="search-input" class="search-input" data-i18n-placeholder="search.placeholder" autocomplete="off" autocorrect="off" />
+
+      <div id="search-results" hidden></div>
+
+      <div id="search-browse">
+        <div class="row" style="margin-bottom: 12px">
+          <select id="search-location-filter" class="grow"></select>
+        </div>
+        <button class="btn btn-block" id="new-container-btn" data-i18n="search.newContainer" style="margin-bottom: 12px"></button>
+        <div id="new-container-form" class="card" hidden>
+          <h2 data-i18n="search.newContainer"></h2>
+          <div class="field-row">
+            <label class="field" style="max-width: 110px">
+              <span data-i18n="search.codePrefix"></span>
+              <input type="text" id="new-container-prefix" autocapitalize="characters" />
+            </label>
+            <label class="field grow">
+              <span data-i18n="detail.code"></span>
+              <input type="text" id="new-container-code" autocapitalize="characters" />
+            </label>
+          </div>
+          <label class="field">
+            <span data-i18n="detail.name"></span>
+            <input type="text" id="new-container-name" />
+          </label>
+          <label class="field">
+            <span data-i18n="detail.location"></span>
+            <select id="new-container-location"></select>
+          </label>
+          <div class="row">
+            <button class="btn btn-primary grow" id="new-container-create" data-i18n="action.create"></button>
+            <button class="btn" id="new-container-cancel" data-i18n="action.cancel"></button>
+          </div>
+          <p class="error-text" id="new-container-error" hidden></p>
+        </div>
+        <div class="section-label" id="search-browse-label"></div>
+        <div class="list" id="search-container-list"></div>
+        <p class="empty-state" id="search-browse-empty" hidden data-i18n="search.noContainers"></p>
+      </div>
+    </section>
+
+    <section id="view-items" class="view view-tab" data-view hidden>
+      <h1 data-i18n="view.items.title"></h1>
+      <input type="search" id="items-search" class="search-input" data-i18n-placeholder="items.filterPlaceholder" autocomplete="off" autocorrect="off" />
+      <div class="field-row" style="margin-bottom: 12px">
+        <select id="items-category-filter" class="grow"></select>
+        <select id="items-state-filter" class="grow">
+          <option value="" data-i18n="items.state.all"></option>
+          <option value="confirmed" data-i18n="items.state.confirmed"></option>
+          <option value="draft" data-i18n="items.state.draft"></option>
+        </select>
+      </div>
+      <div class="row" style="justify-content: space-between; margin-bottom: 10px">
+        <p class="muted" id="items-count" style="margin: 0"></p>
+        <select id="items-sort" style="width: auto">
+          <option value="updatedAt-desc" data-i18n="sort.updatedDesc"></option>
+          <option value="title-asc" data-i18n="sort.titleAsc"></option>
+          <option value="quantity-desc" data-i18n="sort.quantityDesc"></option>
+        </select>
+      </div>
+      <div class="list" id="items-list"></div>
+      <p class="empty-state" id="items-empty" hidden data-i18n="items.empty"></p>
+    </section>
+
+    <section id="view-capture" class="view view-tab" data-view hidden>
+      <h1 data-i18n="view.capture.title"></h1>
+      <p class="empty-state" data-i18n="empty.generic"></p>
+    </section>
+
+    <section id="view-review" class="view view-tab" data-view hidden>
+      <h1 data-i18n="view.review.title"></h1>
+      <p class="empty-state" data-i18n="empty.generic"></p>
+    </section>
+
+    <section id="view-more" class="view view-tab" data-view hidden>
+      <h1 data-i18n="view.more.title"></h1>
+      <div class="more-list">
+        <button class="more-row" data-nav-push="view-locations">
+          <span class="more-row-icon" data-icon="pin"></span>
+          <span class="more-row-text">
+            <span class="more-row-title" data-i18n="view.locations.title"></span>
+            <span class="more-row-sub" data-i18n="more.locations.sub"></span>
+          </span>
+          <span class="more-row-chevron" data-icon="chevronRight"></span>
+        </button>
+        <button class="more-row" data-nav-push="view-labels">
+          <span class="more-row-icon" data-icon="tag"></span>
+          <span class="more-row-text">
+            <span class="more-row-title" data-i18n="view.labels.title"></span>
+            <span class="more-row-sub" data-i18n="more.labels.sub"></span>
+          </span>
+          <span class="more-row-chevron" data-icon="chevronRight"></span>
+        </button>
+        <button class="more-row" data-nav-push="view-report">
+          <span class="more-row-icon" data-icon="chart"></span>
+          <span class="more-row-text">
+            <span class="more-row-title" data-i18n="view.report.title"></span>
+            <span class="more-row-sub" data-i18n="more.report.sub"></span>
+          </span>
+          <span class="more-row-chevron" data-icon="chevronRight"></span>
+        </button>
+        <button class="more-row" data-nav-push="view-trash">
+          <span class="more-row-icon" data-icon="trash"></span>
+          <span class="more-row-text">
+            <span class="more-row-title" data-i18n="view.trash.title"></span>
+            <span class="more-row-sub" data-i18n="more.trash.sub"></span>
+          </span>
+          <span class="more-row-chevron" data-icon="chevronRight"></span>
+        </button>
+        <button class="more-row" data-nav-push="view-synclog">
+          <span class="more-row-icon" data-icon="history"></span>
+          <span class="more-row-text">
+            <span class="more-row-title" data-i18n="view.synclog.title"></span>
+            <span class="more-row-sub" data-i18n="more.synclog.sub"></span>
+          </span>
+          <span class="more-row-chevron" data-icon="chevronRight"></span>
+        </button>
+        <button class="more-row" data-nav-push="view-settings">
+          <span class="more-row-icon" data-icon="settings"></span>
+          <span class="more-row-text">
+            <span class="more-row-title" data-i18n="view.settings.title"></span>
+            <span class="more-row-sub" data-i18n="more.settings.sub"></span>
+          </span>
+          <span class="more-row-chevron" data-icon="chevronRight"></span>
+        </button>
+        <button class="more-row" data-nav-push="view-help">
+          <span class="more-row-icon" data-icon="help"></span>
+          <span class="more-row-text">
+            <span class="more-row-title" data-i18n="view.help.title"></span>
+            <span class="more-row-sub" data-i18n="more.help.sub"></span>
+          </span>
+          <span class="more-row-chevron" data-icon="chevronRight"></span>
+        </button>
+        <button class="more-row" data-nav-push="view-about">
+          <span class="more-row-icon" data-icon="info"></span>
+          <span class="more-row-text">
+            <span class="more-row-title" data-i18n="view.about.title"></span>
+            <span class="more-row-sub" data-i18n="more.about.sub"></span>
+          </span>
+          <span class="more-row-chevron" data-icon="chevronRight"></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== Pushed views (push history, animate forward) ===== -->
+
+    <section id="view-detail" class="view view-pushed" data-view hidden>
+      <header class="view-header">
+        <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
+        <span id="detail-code" class="row-title" style="font-family: var(--font-mono); font-size: 18px"></span>
+        <span id="detail-status-badge" class="badge" style="margin-left: auto"></span>
+      </header>
+      <div class="view-body" id="detail-body">
+        <p class="empty-state" id="detail-not-found" hidden data-i18n="detail.notFound"></p>
+        <div id="detail-content" hidden>
+          <div class="card">
+            <label class="field">
+              <span data-i18n="detail.name"></span>
+              <input type="text" id="detail-title" maxlength="60" />
+            </label>
+            <label class="field">
+              <span data-i18n="detail.location"></span>
+              <select id="detail-location"></select>
+            </label>
+            <label class="field" style="margin-bottom: 0">
+              <span data-i18n="detail.notes"></span>
+              <textarea id="detail-notes"></textarea>
+            </label>
+          </div>
+
+          <button class="btn btn-primary btn-block" id="detail-confirm-btn" hidden style="margin-bottom: 16px"></button>
+
+          <div class="section-label" id="detail-items-label"></div>
+          <p class="empty-state" id="detail-items-empty" hidden data-i18n="detail.itemsEmpty"></p>
+          <div class="list" id="detail-items-list"></div>
+
+          <div id="detail-item-form" class="card" hidden>
+            <label class="field">
+              <span data-i18n="item.description"></span>
+              <input type="text" id="new-item-title" maxlength="100" />
+            </label>
+            <div class="field-row">
+              <label class="field" style="max-width: 90px">
+                <span>#</span>
+                <input type="text" id="new-item-quantity" inputmode="numeric" value="1" />
+              </label>
+              <label class="field grow">
+                <span data-i18n="item.category"></span>
+                <input type="text" id="new-item-category" list="category-options" />
+              </label>
+            </div>
+            <label class="field">
+              <span data-i18n="item.link"></span>
+              <input type="text" id="new-item-link" autocapitalize="none" placeholder="https://…" />
+            </label>
+            <div class="row">
+              <button class="btn btn-primary grow" id="new-item-save" data-i18n="action.add"></button>
+              <button class="btn" id="new-item-cancel" data-i18n="action.cancel"></button>
+            </div>
+          </div>
+          <button class="btn btn-block" id="detail-add-item-btn" data-i18n="detail.addItem" style="margin-bottom: 24px"></button>
+
+          <button class="btn btn-block btn-danger" id="detail-delete-btn" data-i18n="detail.deleteContainer"></button>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-locations" class="view view-pushed" data-view hidden>
+      <header class="view-header">
+        <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
+        <h1 data-i18n="view.locations.title"></h1>
+      </header>
+      <div class="view-body">
+        <button class="btn btn-block" id="location-add-btn" data-i18n="locations.add"></button>
+        <div id="location-form" class="card" hidden>
+          <label class="field">
+            <span data-i18n="locations.room"></span>
+            <input type="text" id="location-room" />
+          </label>
+          <label class="field">
+            <span data-i18n="locations.storage"></span>
+            <input type="text" id="location-storage" />
+          </label>
+          <label class="field">
+            <span data-i18n="locations.section"></span>
+            <input type="text" id="location-section" />
+          </label>
+          <label class="field" style="margin-bottom: 0">
+            <span data-i18n="locations.name"></span>
+            <input type="text" id="location-name" />
+          </label>
+          <div class="row" style="margin-top: 12px">
+            <button class="btn btn-primary grow" id="location-save" data-i18n="action.save"></button>
+            <button class="btn" id="location-cancel" data-i18n="action.cancel"></button>
+          </div>
+          <p class="error-text" id="location-error" hidden></p>
+        </div>
+        <div id="location-groups"></div>
+        <p class="empty-state" id="locations-empty" hidden data-i18n="locations.empty"></p>
+      </div>
+    </section>
+
+    <section id="view-labels" class="view view-pushed" data-view hidden>
+      <header class="view-header">
+        <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
+        <h1 data-i18n="view.labels.title"></h1>
+      </header>
+      <div class="view-body">
+        <p class="empty-state" data-i18n="empty.comingSoon"></p>
+      </div>
+    </section>
+
+    <section id="view-report" class="view view-pushed" data-view hidden>
+      <header class="view-header">
+        <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
+        <h1 data-i18n="view.report.title"></h1>
+      </header>
+      <div class="view-body">
+        <p class="empty-state" data-i18n="empty.comingSoon"></p>
+      </div>
+    </section>
+
+    <section id="view-settings" class="view view-pushed" data-view hidden>
+      <header class="view-header">
+        <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
+        <h1 data-i18n="view.settings.title"></h1>
+      </header>
+      <div class="view-body">
+        <section class="settings-section">
+          <h2 data-i18n="settings.appearance"></h2>
+          <div class="field-label" data-i18n="settings.theme"></div>
+          <div class="seg" data-theme-picker>
+            <button class="seg-btn" data-theme-choice="auto" data-i18n="settings.theme.auto"></button>
+            <button class="seg-btn" data-theme-choice="dark" data-i18n="settings.theme.dark"></button>
+            <button class="seg-btn" data-theme-choice="light" data-i18n="settings.theme.light"></button>
+            <button class="seg-btn" data-theme-choice="midnight" data-i18n="settings.theme.midnight"></button>
+            <button class="seg-btn" data-theme-choice="paper" data-i18n="settings.theme.paper"></button>
+          </div>
+        </section>
+        <section class="settings-section">
+          <h2 data-i18n="settings.language"></h2>
+          <div class="seg" data-lang-picker>
+            <button class="seg-btn" data-lang-choice="nl" data-i18n="settings.language.nl"></button>
+            <button class="seg-btn" data-lang-choice="en" data-i18n="settings.language.en"></button>
+          </div>
+        </section>
+        <section class="settings-section">
+          <h2 data-i18n="settings.density"></h2>
+          <div class="seg" data-density-picker>
+            <button class="seg-btn" data-density-choice="comfortable" data-i18n="settings.density.comfortable"></button>
+            <button class="seg-btn" data-density-choice="compact" data-i18n="settings.density.compact"></button>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="view-trash" class="view view-pushed" data-view hidden>
+      <header class="view-header">
+        <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
+        <h1 data-i18n="view.trash.title"></h1>
+      </header>
+      <div class="view-body">
+        <p class="empty-state" data-i18n="empty.comingSoon"></p>
+      </div>
+    </section>
+
+    <section id="view-synclog" class="view view-pushed" data-view hidden>
+      <header class="view-header">
+        <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
+        <h1 data-i18n="view.synclog.title"></h1>
+      </header>
+      <div class="view-body">
+        <p class="empty-state" data-i18n="empty.comingSoon"></p>
+      </div>
+    </section>
+
+    <section id="view-help" class="view view-pushed" data-view hidden>
+      <header class="view-header">
+        <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
+        <h1 data-i18n="view.help.title"></h1>
+      </header>
+      <div class="view-body">
+        <p class="empty-state" data-i18n="empty.comingSoon"></p>
+      </div>
+    </section>
+
+    <section id="view-about" class="view view-pushed" data-view hidden>
+      <header class="view-header">
+        <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
+        <h1 data-i18n="view.about.title"></h1>
+      </header>
+      <div class="view-body">
+        <p id="about-version-line" class="about-line"></p>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab-btn" data-nav-tab="view-search">
+      <span class="tab-icon" data-icon="search"></span>
+      <span class="tab-label" data-i18n="tab.search"></span>
+    </button>
+    <button class="tab-btn" data-nav-tab="view-items">
+      <span class="tab-icon" data-icon="items"></span>
+      <span class="tab-label" data-i18n="tab.items"></span>
+    </button>
+    <button class="tab-btn" data-nav-tab="view-capture">
+      <span class="tab-icon" data-icon="camera"></span>
+      <span class="tab-label" data-i18n="tab.capture"></span>
+    </button>
+    <button class="tab-btn" data-nav-tab="view-review">
+      <span class="tab-icon" data-icon="review"></span>
+      <span class="tab-label" data-i18n="tab.review"></span>
+    </button>
+    <button class="tab-btn" data-nav-tab="view-more">
+      <span class="tab-icon" data-icon="more"></span>
+      <span class="tab-label" data-i18n="tab.more"></span>
+    </button>
+  </nav>
+</div>
+
+<datalist id="category-options"></datalist>
+<div id="toast-root"></div>
+<div id="dialog-root"></div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
