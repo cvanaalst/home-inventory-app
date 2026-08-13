@@ -352,6 +352,34 @@
           <p class="muted" id="settings-storage-persist-status"></p>
           <button class="btn btn-block" id="settings-storage-persist-btn" data-i18n="settings.storage.persistBtn" style="margin-top: 8px"></button>
         </section>
+        <section class="settings-section">
+          <h2 data-i18n="settings.sync.title"></h2>
+          <label class="field">
+            <span data-i18n="settings.sync.clientId"></span>
+            <input type="text" id="sync-clientid-input" autocapitalize="none" autocomplete="off" placeholder="123...abc.apps.googleusercontent.com" />
+          </label>
+          <button class="btn" id="sync-clientid-save-btn" data-i18n="action.save" style="margin-bottom: 14px"></button>
+
+          <div class="field-label" data-i18n="settings.sync.registerValues"></div>
+          <label class="field">
+            <span data-i18n="settings.sync.origin"></span>
+            <input type="text" id="sync-origin-value" readonly />
+          </label>
+          <label class="field" style="margin-bottom: 0">
+            <span data-i18n="settings.sync.redirectUri"></span>
+            <input type="text" id="sync-redirect-value" readonly />
+          </label>
+
+          <p class="muted" id="sync-status" style="margin-top: 14px"></p>
+
+          <button class="btn btn-block btn-primary" id="sync-now-btn" data-i18n="settings.sync.now" style="margin-top: 8px"></button>
+          <button class="btn btn-block" id="sync-backup-btn" data-i18n="settings.sync.backupNow" style="margin-top: 10px"></button>
+          <button class="btn btn-block" id="sync-restore-toggle-btn" data-i18n="settings.sync.showBackups" style="margin-top: 10px"></button>
+          <div id="sync-restore-list" class="list" hidden style="margin-top: 10px"></div>
+          <p class="empty-state" id="sync-restore-empty" hidden data-i18n="settings.sync.noBackups"></p>
+
+          <button class="btn btn-block" id="sync-disconnect-btn" data-i18n="settings.sync.disconnect" style="margin-top: 16px"></button>
+        </section>
       </div>
     </section>
 
@@ -361,7 +389,8 @@
         <h1 data-i18n="view.trash.title"></h1>
       </header>
       <div class="view-body">
-        <p class="empty-state" data-i18n="empty.comingSoon"></p>
+        <div class="list" id="trash-list"></div>
+        <p class="empty-state" id="trash-empty" hidden data-i18n="trash.empty"></p>
       </div>
     </section>
 
@@ -371,7 +400,9 @@
         <h1 data-i18n="view.synclog.title"></h1>
       </header>
       <div class="view-body">
-        <p class="empty-state" data-i18n="empty.comingSoon"></p>
+        <div id="synclog-list"></div>
+        <p class="empty-state" id="synclog-empty" hidden data-i18n="synclog.empty"></p>
+        <button class="btn btn-block" id="synclog-clear-btn" data-i18n="synclog.clear" hidden></button>
       </div>
     </section>
 

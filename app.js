@@ -15,6 +15,9 @@ import { initDetailView } from "./view-detail.js";
 import { initReportView } from "./view-report.js";
 import { initHelpView } from "./view-help.js";
 import { initSettingsView } from "./view-settings.js";
+import { initTrashView } from "./view-trash.js";
+import { initSyncLogView } from "./view-synclog.js";
+import { checkRedirectReturn } from "./sync.js";
 
 const TAB_TARGETS = ["view-search", "view-items", "view-capture", "view-review", "view-more"];
 const PUSH_TARGETS = [
@@ -215,6 +218,8 @@ function initViews() {
   viewControllers["view-report"] = initReportView();
   viewControllers["view-help"] = initHelpView();
   viewControllers["view-settings"] = initSettingsView();
+  viewControllers["view-trash"] = initTrashView();
+  viewControllers["view-synclog"] = initSyncLogView();
 }
 
 function wireSettings() {
@@ -262,6 +267,7 @@ async function boot() {
 
   registerServiceWorker();
   requestPersistentStorage(); // fire-and-forget, per BLUEPRINT.md §8.13
+  checkRedirectReturn(); // resumes a sync/backup that fell back to the OAuth redirect flow (§7)
 
   // Correct language/theme/density once the stored preference has loaded.
   await loadPrefs();

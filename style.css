@@ -1160,6 +1160,79 @@ textarea {
 }
 
 /* ============================================================
+   Trash + backup-restore list rows (shared row shape: title on the
+   left, one or two small action buttons on the right)
+   ============================================================ */
+
+.trash-row {
+  cursor: default;
+}
+
+.trash-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Sync log
+   ============================================================ */
+
+.synclog-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.synclog-row:last-child {
+  border-bottom: none;
+}
+
+.synclog-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.synclog-dot-success {
+  background: var(--success);
+}
+
+.synclog-dot-error {
+  background: var(--danger);
+}
+
+.synclog-dot-skipped {
+  background: var(--text-tertiary);
+}
+
+.synclog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.synclog-kind {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.synclog-detail {
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow-wrap: break-word;
+}
+
+.synclog-when {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ============================================================
    Responsive
    ============================================================ */
 

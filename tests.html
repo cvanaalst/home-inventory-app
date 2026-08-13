@@ -26,6 +26,8 @@ import * as db from "./db.js";
 import { dictionaryKeys } from "./i18n.js";
 import { render } from "./markdown.js";
 import * as report from "./report.js";
+import * as merge from "./merge.js";
+import { parseItemsPayload, buildMultipartBody } from "./sync.js";
 
 const results = document.getElementById("results");
 let pass = 0;
@@ -513,6 +515,147 @@ section("buildPrintReportHtml");
   const t = (key) => key;
   const html = report.buildPrintReportHtml({ containers: [], items: [], locations: [], includeNotes: false, t });
   assertTrue(html.includes("report.print.empty"), "printing with no containers renders the translated empty state rather than a blank page");
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// merge.js — two-way sync conflict resolution (pure, unit-tested FIRST
+// per BLUEPRINT.md §7 — a bug here is silent and ships straight to Drive)
+// ══════════════════════════════════════════════════════════════════════
+
+section("resolveRecord — tombstone-wins / last-write-wins");
+{
+  const live = { id: "x", deletedAt: null, updatedAt: "2026-01-01T00:00:00.000Z" };
+  const liveNewer = { id: "x", deletedAt: null, updatedAt: "2026-02-01T00:00:00.000Z" };
+  const tomb = { id: "x", deletedAt: "2026-01-15T00:00:00.000Z", updatedAt: "2026-01-15T00:00:00.000Z" };
+  const tombNewer = { id: "x", deletedAt: "2026-03-01T00:00:00.000Z", updatedAt: "2026-03-01T00:00:00.000Z" };
+
+  assertEqual(merge.resolveRecord(null, live), live, "a missing local copy resolves to whatever remote has — first sync of a record from another device");
+  assertEqual(merge.resolveRecord(live, null), live, "a missing remote copy resolves to the local copy — a record remote has never seen yet");
+  assertEqual(merge.resolveRecord(live, liveNewer), liveNewer, "between two live copies, the newer updatedAt wins");
+  assertEqual(merge.resolveRecord(liveNewer, live), liveNewer, "order of arguments doesn't matter — newer always wins");
+  assertEqual(
+    merge.resolveRecord(tomb, liveNewer),
+    tomb,
+    "a tombstone wins even against a LIVE record with a newer updatedAt — otherwise a concurrent edit elsewhere would resurrect something this device deleted, and the delete would never propagate",
+  );
+  assertEqual(
+    merge.resolveRecord(liveNewer, tomb),
+    tomb,
+    "tombstone-wins holds regardless of argument order",
+  );
+  assertEqual(merge.resolveRecord(tomb, tombNewer), tombNewer, "between two tombstones, the newer updatedAt wins (so a later un-delete-then-redelete elsewhere still lands correctly)");
+  assertEqual(merge.resolveRecord(live, live), live, "resolving a record against an identical copy of itself is a no-op");
+}
+
+section("mergeItemSets");
+{
+  const local = [
+    { id: "only-local", deletedAt: null, updatedAt: "2026-01-01T00:00:00.000Z" },
+    { id: "both-same", deletedAt: null, updatedAt: "2026-01-01T00:00:00.000Z" },
+    { id: "both-remote-newer", deletedAt: null, updatedAt: "2026-01-01T00:00:00.000Z" },
+    { id: "remote-deletes-it", deletedAt: null, updatedAt: "2026-01-01T00:00:00.000Z" },
+  ];
+  const remote = [
+    { id: "only-remote", deletedAt: null, updatedAt: "2026-01-01T00:00:00.000Z" },
+    { id: "both-same", deletedAt: null, updatedAt: "2026-01-01T00:00:00.000Z" },
+    { id: "both-remote-newer", deletedAt: null, updatedAt: "2026-02-01T00:00:00.000Z" },
+    { id: "remote-deletes-it", deletedAt: "2026-02-01T00:00:00.000Z", updatedAt: "2026-02-01T00:00:00.000Z" },
+  ];
+
+  const { merged, stats } = merge.mergeItemSets(local, remote);
+
+  assertEqual(merged.length, 5, "the merged set is the union of every id seen on either side — 5 distinct ids across local and remote");
+  assertEqual(stats, { added: 1, updated: 1, deleted: 1 }, "stats describe what this merge is about to CHANGE locally: one brand-new record, one plain content update, one newly-tombstoned record, and one record left untouched");
+
+  const byId = new Map(merged.map((r) => [r.id, r]));
+  assertTrue(!!byId.get("only-local"), "a record that only exists locally survives the merge untouched");
+  assertTrue(!!byId.get("only-remote"), "a record that only exists remotely is added to the merged set");
+  assertEqual(byId.get("both-remote-newer").updatedAt, "2026-02-01T00:00:00.000Z", "when both sides have a record, the newer-updatedAt version is the one that survives into the merged set");
+  assertTrue(!!byId.get("remote-deletes-it").deletedAt, "a remote deletion is reflected in the merged set as a tombstone");
+}
+{
+  const { merged, stats } = merge.mergeItemSets([], []);
+  assertEqual(merged, [], "merging two empty sets (first sync ever, both sides) produces an empty set, not an error");
+  assertEqual(stats, { added: 0, updated: 0, deleted: 0 }, "stats are all zero when there is nothing to merge");
+}
+
+section("computeMediaActions");
+{
+  const merged = [
+    { id: "r1", deletedAt: null, attachments: [{ mediaId: "m-local-only" }] },
+    { id: "r2", deletedAt: null, attachments: [{ mediaId: "m-remote-only" }] },
+    { id: "r3", deletedAt: null, attachments: [{ mediaId: "m-both" }] },
+    // this record is DELETED, so its attachment must not keep its media alive
+    { id: "r4", deletedAt: "2026-01-01T00:00:00.000Z", attachments: [{ mediaId: "m-orphaned-by-delete" }] },
+  ];
+  const localMediaIds = ["m-local-only", "m-both", "m-unreferenced-local"];
+  const remoteMediaNames = ["m-remote-only__photo.jpg", "m-both__spec.pdf", "m-orphaned-by-delete__old.jpg"];
+
+  const actions = merge.computeMediaActions(merged, localMediaIds, remoteMediaNames);
+
+  assertEqual(actions.toUpload, ["m-local-only"], "a blob that exists locally, is referenced by a live record, but has no Drive file yet needs uploading");
+  assertEqual(actions.toDownload, ["m-remote-only"], "a blob referenced by a live record that exists on Drive but not locally needs downloading");
+  assertEqual(actions.toDeleteLocal, ["m-unreferenced-local"], "a local blob no live record references anymore is an orphan and gets deleted locally");
+  assertEqual(
+    actions.toDeleteRemoteNames,
+    ["m-orphaned-by-delete__old.jpg"],
+    "a Drive file whose record was deleted gets removed from Drive too, matched by the '<mediaId>__' filename prefix",
+  );
+}
+{
+  // The local blob for a deleted record's attachment is USUALLY already
+  // gone (local deletion purges it within seconds) — the Drive-side delete
+  // must never be gated on it still being present locally, or the Drive
+  // copy orphans forever (a real bug documented in BLUEPRINT.md §7).
+  const merged = [{ id: "r1", deletedAt: "2026-01-01T00:00:00.000Z", attachments: [{ mediaId: "m1" }] }];
+  const actions = merge.computeMediaActions(merged, [], ["m1__photo.jpg"]);
+  assertEqual(actions.toDeleteRemoteNames, ["m1__photo.jpg"], "the Drive file is queued for deletion even though the local blob is already gone — deletion is driven only by whether any live record still wants it");
+}
+{
+  const actions = merge.computeMediaActions([], [], []);
+  assertEqual(actions, { toUpload: [], toDownload: [], toDeleteLocal: [], toDeleteRemoteNames: [] }, "no records and no media anywhere produces no actions at all");
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// sync.js — the payload guard + multipart body builder (its only pure,
+// I/O-free exports; everything else needs a real Drive connection)
+// ══════════════════════════════════════════════════════════════════════
+
+section("parseItemsPayload — the payload guard (§7)");
+assertEqual(parseItemsPayload(""), { ok: true, items: [] }, "an empty body (first sync, nothing uploaded yet) is the one benign empty case");
+assertEqual(parseItemsPayload("   "), { ok: true, items: [] }, "whitespace-only counts as empty too");
+assertEqual(
+  parseItemsPayload(JSON.stringify({ v: 1, items: [{ id: "a" }] })),
+  { ok: true, items: [{ id: "a" }] },
+  "a well-formed current-version payload parses through",
+);
+assertEqual(
+  parseItemsPayload("{not valid json"),
+  { ok: false, reason: "unreadable", detail: "payload is not valid JSON" },
+  "garbage/corrupt JSON is refused outright — never silently treated as an empty remote, which would let a write-back overwrite real data with nothing",
+);
+assertEqual(
+  parseItemsPayload("[1,2,3]"),
+  { ok: false, reason: "unreadable", detail: "payload is not a JSON object" },
+  "a bare JSON array (not the {v, items} envelope) is refused, not misread as a bare item list",
+);
+assertEqual(
+  parseItemsPayload(JSON.stringify({ v: 99, items: [] })),
+  { ok: false, reason: "unsupported-format", detail: "payload is wire version 99, this build only reads version 1" },
+  "a future/unknown wire version is refused and named, per the guard's whole purpose — an old build must abort rather than guess",
+);
+assertEqual(
+  parseItemsPayload(JSON.stringify({ v: 1 })),
+  { ok: false, reason: "unreadable", detail: "payload has no items array" },
+  "a correctly-versioned envelope missing its items array is still refused, not treated as an empty list");
+
+section("buildMultipartBody");
+{
+  const body = buildMultipartBody({ name: "items.json" }, '{"v":1,"items":[]}', "application/json");
+  assertTrue(body.includes("inventory-sync-boundary"), "the body is delimited by the declared boundary string");
+  assertTrue(body.includes('{"name":"items.json"}'), "the metadata part carries the file's Drive metadata as JSON");
+  assertTrue(body.includes('{"v":1,"items":[]}'), "the content part carries the actual file body verbatim");
+  assertTrue(body.trim().endsWith("--inventory-sync-boundary--"), "the body is terminated by the closing boundary marker Drive's multipart parser requires");
 }
 
 finish();

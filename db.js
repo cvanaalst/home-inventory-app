@@ -318,8 +318,21 @@ async function getAllMediaIds() {
   return reqToPromise(db.transaction("media", "readonly").objectStore("media").getAllKeys());
 }
 
-// makeThumbnail / makeFullImage / cloneMedia: canvas- and trash-restore
-// dependent respectively — added in Phase 2 (capture) and Phase 4 (trash).
+/** Copies a media record under a brand-new id and returns that id. Used by
+ * trash restore (§8.5): a restored record gets a new id, so any attachment
+ * it carries needs its own new-id media copy — sharing the old blob would
+ * mean deleting the (still-tombstoned) original later also deletes the
+ * restored copy's picture out from under it. */
+async function cloneMedia(id) {
+  const rec = await getMedia(id);
+  if (!rec) return null;
+  const newId = makeId();
+  await putMedia({ ...rec, id: newId });
+  return newId;
+}
+
+// makeThumbnail / makeFullImage: canvas-dependent, added alongside the
+// capture UI in a later phase.
 
 // ────────────────────────────────────────────────────────────────────────
 // meta + sync log
@@ -752,6 +765,7 @@ export {
   getMedia,
   deleteMedia,
   getAllMediaIds,
+  cloneMedia,
   // meta + sync log
   getMeta,
   setMeta,
