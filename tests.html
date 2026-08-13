@@ -24,6 +24,8 @@
 <script type="module">
 import * as db from "./db.js";
 import { dictionaryKeys } from "./i18n.js";
+import { render } from "./markdown.js";
+import * as report from "./report.js";
 
 const results = document.getElementById("results");
 let pass = 0;
@@ -340,6 +342,177 @@ section("i18n dictionary parity");
   const onlyEn = en.filter((k) => !nl.includes(k));
   assertEqual(onlyNl, [], "every NL key also exists in EN — a missing translation would render as its own key name");
   assertEqual(onlyEn, [], "every EN key also exists in NL");
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// markdown.js — rendering correctness + XSS safety
+// ══════════════════════════════════════════════════════════════════════
+
+section("markdown render — block structure");
+assertEqual(render("# Heading"), "<h1>Heading</h1>", "a single # produces an h1");
+assertEqual(render("## Sub"), "<h2>Sub</h2>", "## produces an h2");
+assertEqual(render("### Deep"), "<h3>Deep</h3>", "### produces an h3");
+assertEqual(render("Just text"), "<p>Just text</p>", "a plain line becomes a paragraph");
+assertEqual(
+  render("- one\n- two"),
+  "<ul>\n<li>one</li>\n<li>two</li>\n</ul>",
+  "consecutive bullet lines are wrapped in a single <ul>, not one per line",
+);
+assertEqual(
+  render("- one\n\ntext after"),
+  "<ul>\n<li>one</li>\n</ul>\n<p>text after</p>",
+  "a blank line closes an open list before the next paragraph starts",
+);
+assertEqual(render("para one\n\npara two"), "<p>para one</p>\n<p>para two</p>", "a blank line separates two paragraphs");
+
+section("markdown render — inline formatting");
+assertEqual(render("**bold**"), "<p><strong>bold</strong></p>", "**text** becomes <strong>");
+assertEqual(render("*italic*"), "<p><em>italic</em></p>", "*text* becomes <em>");
+assertEqual(render("_italic_"), "<p><em>italic</em></p>", "_text_ also becomes <em>");
+assertEqual(render("`code`"), "<p><code>code</code></p>", "`text` becomes <code>");
+assertEqual(
+  render("`**not bold**`"),
+  "<p><code>**not bold**</code></p>",
+  "code spans are protected first — markup characters inside backticks are never reinterpreted",
+);
+assertEqual(
+  render("[Anthropic](https://anthropic.com)"),
+  '<p><a href="https://anthropic.com" target="_blank" rel="noreferrer">Anthropic</a></p>',
+  "a link with a safe https url renders as a real anchor",
+);
+
+section("markdown render — XSS safety");
+// NOTE: every literal script tag below is written as "<scr" + "ipt>" — the
+// literal characters "<\/script>" anywhere in this file, even inside a JS
+// string, terminate the real enclosing <script type="module"> block early
+// (the HTML parser doesn't know about JS string boundaries).
+const RAW_SCRIPT = "<scr" + "ipt>alert(1)</scr" + "ipt>";
+assertTrue(
+  !render(RAW_SCRIPT).includes("<scr" + "ipt>"),
+  "a raw script tag in the source is never passed through unescaped",
+);
+assertEqual(
+  render(RAW_SCRIPT),
+  "<p>&lt;scr" + "ipt&gt;alert(1)&lt;/scr" + "ipt&gt;</p>",
+  "a raw script tag renders as inert escaped text, wrapped as a normal paragraph",
+);
+assertEqual(
+  render("[click me](javascript:alert(1))"),
+  "<p>click me</p>",
+  "a javascript: url is rejected — the link degrades to plain text rather than becoming a live anchor",
+);
+assertTrue(
+  !render('[x](https://evil.test/"onmouseover="alert(1))').includes('"onmouseover="'),
+  "a quote embedded in a link url can never break out of the href attribute, since the whole line is HTML-escaped before urls are extracted",
+);
+assertTrue(
+  !render("[x](data:text/html," + RAW_SCRIPT + ")").includes("<a "),
+  "a data: url is rejected just like javascript: — only http(s)/mailto/relative links are ever linkified",
+);
+
+// ══════════════════════════════════════════════════════════════════════
+// report.js — insights + export/print builders
+// ══════════════════════════════════════════════════════════════════════
+
+section("computeStats");
+{
+  const items = [
+    { id: "l1", type: "location" },
+    { id: "c1", type: "container", status: "confirmed", pinned: true },
+    { id: "c2", type: "container", status: "drafted" },
+    { id: "i1", type: "item", category: "cables", quantity: 3, state: "confirmed" },
+    { id: "i2", type: "item", category: "cables", quantity: 1, state: "draft" },
+    { id: "i3", type: "item", category: "sensors", quantity: 2, state: "confirmed" },
+    { id: "i4", type: "item", category: "", quantity: 1, state: "confirmed", deletedAt: "2026-01-01T00:00:00.000Z" },
+  ];
+  const stats = report.computeStats(items);
+  assertEqual(stats.locations, 1, "location count excludes non-location records");
+  assertEqual(stats.containers.total, 2, "container count includes both statuses");
+  assertEqual(stats.items.total, 3, "a deleted item is excluded from the live item count");
+  assertEqual(stats.items.totalQuantity, 6, "total quantity sums only live items (3+1+2)");
+  assertEqual(stats.items.draftCount, 1, "draft count reflects only live draft items");
+  assertEqual(stats.pinned, 1, "pinned count reflects live pinned records of any type");
+  assertEqual(
+    stats.items.byCategory,
+    [{ category: "cables", count: 2 }, { category: "sensors", count: 1 }],
+    "byCategory is sorted by count descending, most common category first",
+  );
+}
+
+section("bucketItemsByWeek");
+{
+  const today = "2026-03-15T12:00:00.000Z"; // a Sunday, so bucket math is exercised mid-week too
+  const items = [
+    { type: "item", createdAt: "2026-03-14T00:00:00.000Z" }, // this week
+    { type: "item", createdAt: "2026-03-01T00:00:00.000Z" }, // ~2 weeks ago
+    { type: "item", createdAt: "2020-01-01T00:00:00.000Z" }, // way out of range
+    { type: "item", createdAt: "2026-03-14T00:00:00.000Z", deletedAt: "2026-03-14T00:00:00.000Z" }, // deleted, excluded
+  ];
+  const buckets = report.bucketItemsByWeek(items, 4, { today });
+  assertEqual(buckets.length, 4, "the requested number of weekly buckets is always returned, even mostly empty");
+  const total = buckets.reduce((sum, b) => sum + b.count, 0);
+  assertEqual(total, 2, "an out-of-range item and a deleted item are both excluded from every bucket");
+  assertTrue(buckets[3].count >= 1, "an item created this week lands in the most recent (last) bucket");
+}
+
+section("sortTagsByRecency");
+{
+  const items = [
+    { type: "item", tags: ["old"], updatedAt: "2026-01-01T00:00:00.000Z" },
+    { type: "item", tags: ["old"], updatedAt: "2026-02-01T00:00:00.000Z" },
+    { type: "item", tags: ["new"], updatedAt: "2026-03-01T00:00:00.000Z" },
+    { type: "item", tags: ["gone"], updatedAt: "2026-04-01T00:00:00.000Z", deletedAt: "2026-04-02T00:00:00.000Z" },
+  ];
+  const tags = report.sortTagsByRecency(items);
+  assertEqual(tags.map((t) => t.tag), ["new", "old"], "tags are ordered newest-use first, and a tag only used on a deleted item never appears");
+  const oldEntry = tags.find((t) => t.tag === "old");
+  assertEqual(oldEntry.count, 2, "a tag's count reflects every live record carrying it, even across multiple updatedAt values");
+}
+
+section("buildJsonExport");
+{
+  const items = [
+    { id: "a", type: "item", title: "Live" },
+    { id: "b", type: "item", title: "Gone", deletedAt: "2026-01-01T00:00:00.000Z" },
+  ];
+  const parsed = JSON.parse(report.buildJsonExport(items));
+  assertEqual(parsed.length, 2, "the JSON export includes tombstoned records too — it doubles as the future backup format, which must round-trip everything");
+  assertTrue(parsed.some((r) => r.id === "b" && r.deletedAt), "a deleted record's tombstone survives the export intact");
+}
+
+section("buildCsvExport");
+{
+  const locations = [{ id: "l1", type: "location", room: "Office", storage: "", section: "", title: "" }];
+  const containers = [{ id: "c1", type: "container", code: "BOX-001", title: "Cables box", linkedIds: ["l1"] }];
+  const items = [
+    { id: "i1", type: "item", title: "USB cable", quantity: 3, category: "cables", state: "confirmed", updatedAt: "2026-01-01T00:00:00.000Z", linkedIds: ["c1"], links: [] },
+    { id: "i2", type: "item", title: 'Weird, "quoted"', quantity: 1, category: "", state: "draft", updatedAt: "2026-01-01T00:00:00.000Z", linkedIds: ["c1"], links: [] },
+    { id: "i3", type: "item", title: "Deleted item", quantity: 1, category: "", state: "confirmed", updatedAt: "2026-01-01T00:00:00.000Z", linkedIds: ["c1"], links: [], deletedAt: "2026-01-02T00:00:00.000Z" },
+    { id: "l1", type: "location" },
+  ];
+  const csv = report.buildCsvExport(items, containers, locations);
+  const rows = csv.split("\n");
+  assertEqual(rows[0], "container,container_name,location,description,quantity,category,link,state,updated_at", "the CSV header uses fixed, untranslated column names, so the file stays usable regardless of app language");
+  assertEqual(rows.length, 3, "the header plus exactly the two live items are present — the deleted item and the location record are excluded");
+  assertTrue(rows[2].includes('"Weird, ""quoted"""'), "a title containing a comma and quotes is CSV-escaped by wrapping in quotes and doubling the inner quotes");
+  assertTrue(rows[1].startsWith("BOX-001,Cables box,Office,USB cable,3,cables,,confirmed,"), "a normal row resolves the item's container code/name and its location path");
+}
+
+section("buildPrintReportHtml");
+{
+  const t = (key, vars) => (vars ? `${key}(${JSON.stringify(vars)})` : key); // stub translator, per BLUEPRINT.md §4
+  const locations = [{ id: "l1", type: "location", room: "Office", storage: "", section: "", title: "" }];
+  const containers = [{ id: "c1", type: "container", code: "BOX-001", title: "Cables box", linkedIds: ["l1"] }];
+  const items = [{ id: "i1", type: "item", title: "USB cable", quantity: 2, category: "cables", linkedIds: ["c1"] }];
+  const html = report.buildPrintReportHtml({ containers, items, locations, includeNotes: false, t });
+  assertTrue(html.includes("BOX-001"), "the print report includes the container's code");
+  assertTrue(html.includes("USB cable"), "the print report includes the item's title");
+  assertTrue(html.includes("Office"), "the print report groups containers under their location path");
+}
+{
+  const t = (key) => key;
+  const html = report.buildPrintReportHtml({ containers: [], items: [], locations: [], includeNotes: false, t });
+  assertTrue(html.includes("report.print.empty"), "printing with no containers renders the translated empty state rather than a blank page");
 }
 
 finish();

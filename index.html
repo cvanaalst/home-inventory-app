@@ -231,6 +231,7 @@
           </div>
           <button class="btn btn-block" id="detail-add-item-btn" data-i18n="detail.addItem" style="margin-bottom: 24px"></button>
 
+          <button class="btn btn-block" id="detail-print-btn" data-i18n="detail.printContainer" style="margin-bottom: 12px"></button>
           <button class="btn btn-block btn-danger" id="detail-delete-btn" data-i18n="detail.deleteContainer"></button>
         </div>
       </div>
@@ -287,7 +288,29 @@
         <h1 data-i18n="view.report.title"></h1>
       </header>
       <div class="view-body">
-        <p class="empty-state" data-i18n="empty.comingSoon"></p>
+        <div class="stat-grid">
+          <div class="stat-tile"><span class="stat-value" id="report-stat-locations"></span><span class="stat-label" data-i18n="report.stats.locations"></span></div>
+          <div class="stat-tile"><span class="stat-value" id="report-stat-containers"></span><span class="stat-label" data-i18n="report.stats.containers"></span></div>
+          <div class="stat-tile"><span class="stat-value" id="report-stat-items"></span><span class="stat-label" data-i18n="report.stats.items"></span></div>
+          <div class="stat-tile"><span class="stat-value" id="report-stat-pinned"></span><span class="stat-label" data-i18n="report.stats.pinned"></span></div>
+          <div class="stat-tile"><span class="stat-value" id="report-stat-drafts"></span><span class="stat-label" data-i18n="report.stats.drafts"></span></div>
+        </div>
+
+        <div class="section-label" data-i18n="report.categories.title"></div>
+        <div id="report-categories" class="category-bars"></div>
+        <p class="empty-state" id="report-categories-empty" hidden data-i18n="report.categories.empty"></p>
+
+        <div class="section-label" data-i18n="report.activity.title"></div>
+        <div id="report-chart" class="chart-container"></div>
+
+        <div class="section-label" data-i18n="report.tags.title"></div>
+        <div id="report-tags" class="tag-cloud"></div>
+        <p class="empty-state" id="report-tags-empty" hidden data-i18n="report.tags.empty"></p>
+
+        <div class="section-label" data-i18n="report.export.title"></div>
+        <button class="btn btn-block" id="report-export-json-btn" data-i18n="report.export.json" style="margin-bottom: 10px"></button>
+        <button class="btn btn-block" id="report-export-csv-btn" data-i18n="report.export.csv" style="margin-bottom: 10px"></button>
+        <button class="btn btn-block btn-primary" id="report-print-btn" data-i18n="report.print.button"></button>
       </div>
     </section>
 
@@ -322,6 +345,13 @@
             <button class="seg-btn" data-density-choice="compact" data-i18n="settings.density.compact"></button>
           </div>
         </section>
+        <section class="settings-section">
+          <h2 data-i18n="settings.storage.title"></h2>
+          <p class="muted" id="settings-storage-usage"></p>
+          <div class="storage-bar"><div class="storage-bar-fill" id="settings-storage-bar-fill"></div></div>
+          <p class="muted" id="settings-storage-persist-status"></p>
+          <button class="btn btn-block" id="settings-storage-persist-btn" data-i18n="settings.storage.persistBtn" style="margin-top: 8px"></button>
+        </section>
       </div>
     </section>
 
@@ -351,7 +381,7 @@
         <h1 data-i18n="view.help.title"></h1>
       </header>
       <div class="view-body">
-        <p class="empty-state" data-i18n="empty.comingSoon"></p>
+        <div id="help-content" class="markdown-content"></div>
       </div>
     </section>
 
@@ -394,6 +424,7 @@
 <datalist id="category-options"></datalist>
 <div id="toast-root"></div>
 <div id="dialog-root"></div>
+<div id="print-root" class="print-report"></div>
 
 <script type="module" src="./app.js"></script>
 </body>

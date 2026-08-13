@@ -7,11 +7,14 @@ import { state } from "./state.js";
 import { setLang, applyTranslations, t } from "./i18n.js";
 import { renderIcons } from "./icons.js";
 import { VERSION } from "./version.js";
-import { getMeta, setMeta } from "./db.js";
+import { getMeta, setMeta, requestPersistentStorage } from "./db.js";
 import { initSearchView } from "./view-search.js";
 import { initItemsView } from "./view-items.js";
 import { initLocationsView } from "./view-locations.js";
 import { initDetailView } from "./view-detail.js";
+import { initReportView } from "./view-report.js";
+import { initHelpView } from "./view-help.js";
+import { initSettingsView } from "./view-settings.js";
 
 const TAB_TARGETS = ["view-search", "view-items", "view-capture", "view-review", "view-more"];
 const PUSH_TARGETS = [
@@ -209,6 +212,9 @@ function initViews() {
   viewControllers["view-items"] = initItemsView({ onOpenContainer: openContainer });
   viewControllers["view-locations"] = initLocationsView();
   viewControllers["view-detail"] = initDetailView({ onDeleted: () => history.back() });
+  viewControllers["view-report"] = initReportView();
+  viewControllers["view-help"] = initHelpView();
+  viewControllers["view-settings"] = initSettingsView();
 }
 
 function wireSettings() {
@@ -255,6 +261,7 @@ async function boot() {
   viewControllers[initial]?.show({});
 
   registerServiceWorker();
+  requestPersistentStorage(); // fire-and-forget, per BLUEPRINT.md §8.13
 
   // Correct language/theme/density once the stored preference has loaded.
   await loadPrefs();

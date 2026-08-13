@@ -7,6 +7,7 @@ import { queryItems, getItem, putItem, putItems, makeRecord } from "./db.js";
 import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
+import { buildPrintReportHtml } from "./report.js";
 
 export function initDetailView({ onDeleted }) {
   const codeEl = document.getElementById("detail-code");
@@ -29,6 +30,7 @@ export function initDetailView({ onDeleted }) {
   const newItemSave = document.getElementById("new-item-save");
   const newItemCancel = document.getElementById("new-item-cancel");
   const deleteBtn = document.getElementById("detail-delete-btn");
+  const printBtn = document.getElementById("detail-print-btn");
   const categoryOptionsEl = document.getElementById("category-options");
 
   let container = null;
@@ -334,6 +336,12 @@ export function initDetailView({ onDeleted }) {
     itemForm.hidden = true;
     addItemBtn.hidden = false;
     await renderItems();
+  });
+
+  printBtn.addEventListener("click", () => {
+    const html = buildPrintReportHtml({ containers: [container], items, locations, includeNotes: true, t });
+    document.getElementById("print-root").innerHTML = html;
+    window.print();
   });
 
   // ---------- delete container (cascades to its items) ----------

@@ -888,6 +888,278 @@ textarea {
 }
 
 /* ============================================================
+   Insights: stat tiles, category bars, activity chart, tag cloud
+   ============================================================ */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.category-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.category-bar-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.category-bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.category-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.category-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.category-bar-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.chart-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.chart-bar {
+  fill: var(--accent);
+}
+
+.chart-value {
+  font-size: 7px;
+  fill: var(--text-tertiary);
+}
+
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--tag-bg);
+  color: var(--tag-text);
+}
+
+.tag-count {
+  opacity: 0.7;
+}
+
+/* ============================================================
+   Settings: storage usage bar
+   ============================================================ */
+
+.storage-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.storage-bar-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+/* ============================================================
+   Help: rendered markdown
+   ============================================================ */
+
+.markdown-content h2 {
+  margin-top: 20px;
+}
+
+.markdown-content h2:first-child {
+  margin-top: 0;
+}
+
+.markdown-content p {
+  color: var(--text-secondary);
+}
+
+.markdown-content strong {
+  color: var(--text);
+}
+
+.markdown-content ul {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  color: var(--text-secondary);
+}
+
+.markdown-content a {
+  color: var(--accent);
+}
+
+/* ============================================================
+   Print report — #print-root is hidden on screen and shown only
+   inside @media print, so no separate print stylesheet/window is
+   needed (BLUEPRINT.md §8.7).
+   ============================================================ */
+
+#print-root {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #print-root,
+  #print-root * {
+    visibility: visible;
+  }
+
+  #print-root {
+    display: block;
+    position: absolute;
+    inset: 0;
+    color: #000;
+    background: #fff;
+  }
+
+  .print-report h1 {
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+
+  .print-meta {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 12px;
+  }
+
+  .print-location {
+    font-size: 13px;
+    margin: 14px 0 6px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 2px;
+  }
+
+  .print-container {
+    break-inside: avoid;
+    margin-bottom: 10px;
+  }
+
+  .print-container-head {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  .print-code {
+    font-family: var(--font-mono);
+  }
+
+  .print-count {
+    margin-left: auto;
+    color: #555;
+    font-weight: 400;
+  }
+
+  .print-notes {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 4px;
+  }
+
+  .print-container table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .print-container th,
+  .print-container td {
+    text-align: left;
+    padding: 2px 6px 2px 0;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .print-qty {
+    width: 28px;
+  }
+
+  .print-cat {
+    width: 110px;
+    color: #555;
+  }
+
+  .print-empty {
+    color: #888;
+    font-style: italic;
+  }
+}
+
+/* ============================================================
    Responsive
    ============================================================ */
 
