@@ -641,6 +641,22 @@ textarea {
   flex-shrink: 0;
 }
 
+.row-thumb {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--tag-bg);
+}
+
+.row-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .row-main {
   flex: 1;
   min-width: 0;
@@ -672,6 +688,12 @@ textarea {
 [data-density="compact"] .row-card {
   padding: 8px 12px;
   min-height: auto;
+}
+
+/* ...and the container thumbnail — compact is about fitting more rows on
+   screen, which a 40px image works against. */
+[data-density="compact"] .row-thumb {
+  display: none;
 }
 
 .badge {

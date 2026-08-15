@@ -2,7 +2,7 @@
 // search box is empty, browse containers filtered by location, plus manual
 // ("no photo") container creation.
 
-import { queryItems, getMeta, setMeta, putItem, makeRecord, nextCode, locationPath } from "./db.js";
+import { queryItems, getMeta, setMeta, putItem, makeRecord, nextCode, locationPath, getMedia } from "./db.js";
 import { populateLocationSelect, escapeHtml, statusBadgeClass, skeletonGate } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 
@@ -29,11 +29,21 @@ export function initSearchView({ onOpenContainer }) {
 
   let locations = [];
   let debounceTimer = null;
+  // Object URLs for row thumbnails, revoked and rebuilt on every render so a
+  // long browsing session doesn't accumulate one blob URL per container ever
+  // shown — see hydrateThumbnails().
+  const thumbUrls = new Set();
 
   function containerRowHtml(c, loc, itemCount) {
     const path = loc ? locationPath(loc) : "";
+    const firstPhoto = (c.attachments || [])[0];
+    // CSS hides .row-thumb entirely in compact density — the element still
+    // exists so hydrateThumbnails() has something to fill in, it's just
+    // never visible there, matching how .row-sub is dropped in compact.
+    const thumb = firstPhoto ? `<span class="row-thumb" data-media-id="${escapeHtml(firstPhoto.mediaId)}"><img alt="" /></span>` : "";
     return `
       <button type="button" class="row-card" data-container-id="${c.id}">
+        ${thumb}
         <span class="row-main">
           <span class="row-title">${escapeHtml(c.code)}${c.title ? ` — ${escapeHtml(c.title)}` : ""}</span>
           <span class="row-sub">${tCount("items.count", itemCount)}${path ? ` · ${escapeHtml(path)}` : ""}</span>
@@ -46,6 +56,23 @@ export function initSearchView({ onOpenContainer }) {
     root.querySelectorAll("[data-container-id]").forEach((el) => {
       el.addEventListener("click", () => onOpenContainer(el.getAttribute("data-container-id")));
     });
+  }
+
+  /** Fills every .row-thumb img left empty by containerRowHtml. Async and
+   * unawaited by callers on purpose — rows are fully usable (clickable,
+   * readable) before their thumbnails arrive; images just pop in. */
+  async function hydrateThumbnails(root) {
+    for (const url of thumbUrls) URL.revokeObjectURL(url);
+    thumbUrls.clear();
+    const tiles = root.querySelectorAll("[data-media-id]");
+    for (const tile of tiles) {
+      const rec = await getMedia(tile.getAttribute("data-media-id"));
+      if (!rec || !rec.blob) continue;
+      const url = URL.createObjectURL(rec.blob);
+      thumbUrls.add(url);
+      const img = tile.querySelector("img");
+      if (img) img.src = url;
+    }
   }
 
   // ---------- browse mode ----------
@@ -76,6 +103,7 @@ export function initSearchView({ onOpenContainer }) {
         : t("search.noContainers");
       browseList.innerHTML = filtered.map((c) => containerRowHtml(c, locById.get((c.linkedIds || [])[0]), itemCounts.get(c.id) || 0)).join("");
       wireContainerRows(browseList);
+      hydrateThumbnails(browseList);
     } finally {
       browseSkeleton.end(seq);
     }
@@ -187,6 +215,7 @@ export function initSearchView({ onOpenContainer }) {
     }
     resultsEl.innerHTML = sections.length ? sections.join("") : `<p class="empty-state">${t("search.noResults")}</p>`;
     wireContainerRows(resultsEl);
+    hydrateThumbnails(resultsEl);
   }
 
   async function runSearch(q) {
