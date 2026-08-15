@@ -393,6 +393,10 @@ SecondMemory/                 (or \<YourApp\>/ — created via drive.file scope)
 
 - **Implicit/redirect fallback is mandatory** for iOS standalone PWAs, where popups fail. Store a "pending action" before redirecting and resume after the reload.
 
+- **A popup can complete consent and still never call back.** Safari's Intelligent Tracking Prevention can block the popup's `postMessage` to the opener tab entirely — worse than a *blocked* popup (which does fire `error\_callback`), this one just hangs forever with nothing to catch. Don't rely on `error\_callback` alone: race the popup against a generous timeout (tens of seconds — a real user needs time to pick an account and click through the "app not verified" warning) and fall back to the redirect either way, not just on an explicit popup error.
+
+- **Consume the redirect result BEFORE any router code touches `location.hash`.** The returned token sits in the exact same URL fragment a hash-based router reads to pick its initial view. If boot-time routing runs first, its own `history.replaceState` silently overwrites the fragment and destroys the token before the app ever sees it — the page returns looking perfectly normal, nothing reaches the remote, and nothing gets logged, because the code that would log the failure never had a token to fail on. This was a real, hard-to-diagnose bug: "it returns to the app and nothing happens" with an empty sync log. (§13)
+
 - Tokens last ~1 hour with **no silent refresh**. Cache `\{accessToken, expiresAt\}` in meta with a safety buffer. Assume you are signed out most of the time (Section 13).
 
 ### The merge (pure, in `merge.js`)
@@ -626,6 +630,19 @@ Not synced: a per-device convenience whose merge story would cost more than recr
 Paste a file, image, URL or text onto a list and it becomes a pre-filled draft. This is the **iOS answer to Web Share Target**, which Safari does not implement. Never intercept a paste aimed at an input.
 
 
+### 8.25 Update available
+
+A service worker that calls `skipWaiting()` on install and hands the new build to `clients.claim()` looks helpful and is not: an already-loaded page can then fetch a module whose shape changed mid-session, half one build and half another. Withholding `skipWaiting()` is correct — but it's only half the fix. Without the other half, the new build just sits in `waiting` forever, because nothing ever tells the user it's there or asks them to swap. A returning visitor keeps running the old app until they happen to hard-reload, which they never will, because the old app looks like it's working fine.
+
+The other half:
+
+- On `registration.installing`, listen for the new worker's `statechange` to `"installed"`. Skip this the very first time the app is ever installed (`navigator.serviceWorker.controller` is still null then — there is nothing yet to reload INTO).
+- Offer a **persistent** toast — `duration: 0`, meaning "never auto-expire", not "expire immediately". A `setTimeout(fn, duration)` with `duration = opts.duration || 5000` is a trap: an explicit `0` is falsy, so it silently becomes 5000 again. A 5-second toast for this is worse than none — it will be missed, and the user has no other cue anything changed.
+- Only post `\{ type: "SKIP\_WAITING" \}` to the waiting worker once the user clicks Reload. That triggers `controllerchange` on the page, which is the one place to call `location.reload()` — guard it with a boolean so a stray second `controllerchange` can't loop the reload.
+- A long-lived tab (an installed PWA is often never closed) would otherwise never ask again on its own. Re-check on `visibilitychange` when the tab returns to the foreground, throttled to roughly once a minute so tab-flicking doesn't hammer the server with `registration.update()` calls.
+- A build already sitting in `waiting` from an earlier visit (the user closed the tab before answering) must also trigger the offer on the next load — check `registration.waiting` right after registering, not just the `updatefound` event, which only fires for an update discovered in the current page load.
+
+
 ## 9. UI architecture
 
 ### Router
@@ -647,6 +664,8 @@ All views are `\<section\>` elements in one `index.html`; the router toggles `hi
 ### Toasts
 
 `toast(message, kind, \{ actionLabel, onAction, onExpire \})`. Reversible destructive actions use **undo-on-toast**, never a confirm dialog. Irreversible ones (delete forever, replace-restore) use a confirm dialog.
+
+Accepts `duration: 0` to mean "never auto-expire" — for a prompt the user must act on (§8.25's update-available offer), not an undo window. Implement it as `duration > 0 ? setTimeout(...) : null`, never `opts.duration || 5000`: that treats an explicit `0` as falsy and silently reinstates the 5-second default, so the prompt vanishes before anyone reads it.
 
 ### The widget pattern
 
@@ -834,13 +853,15 @@ Target: the pure layer is fully covered. DOM behaviour is verified by driving th
 
 **Sync (continued)** 14. **Never let an unreadable payload parse as empty.** Returning `\[\]` makes the next write-back overwrite the remote with local state. Abort instead. (§7) 15. **Snapshot inside the same transaction as the write.** Two transactions can lose the old copy and keep the new one.
 
+**Sync (continued)** 25. **An OAuth redirect's token lives in the same URL fragment a hash-based router reads to pick its initial view.** If boot-time routing runs before the redirect result is checked, its own `history.replaceState` silently overwrites the fragment and destroys the token before the app ever sees it — the page returns looking perfectly normal, nothing reaches the remote, and nothing gets logged, because the code that would log the failure never had a token to fail on. Consume the redirect result FIRST, before any router code touches `location.hash`. (§7) 26. **A GIS popup can complete consent and still never call back** — observed in Safari, where Intelligent Tracking Prevention can block the popup's `postMessage` to the opener entirely. Worse than a *blocked* popup (which does fire `error\_callback`), this one just hangs forever with nothing to catch. Race it against a generous timeout and fall back to the redirect either way, not only on an explicit popup error. (§7)
+
 **Dates** 16. **Month arithmetic must count whole steps from the ANCHOR, never iteratively.** Clamping is lossy: 31 Jan + 1 month = 28 Feb, and stepping again *from that result* gives 28 Mar. A monthly reminder silently migrates to the 28th forever. Counting from the anchor gives 31 Jan → 28 Feb → **31 Mar** → 30 Apr. 17. **"Done" must advance from whichever is later, the scheduled date or today.** Measuring only from today breaks doing a job early — a task due on the 31st, completed on the 6th, resolves to "next occurrence after the 6th", which is still the 31st, so the button appears to do nothing. 18. **Never `new Date("2026-08")`** — some engines read it as local time and it slips into the previous month east of Greenwich. Build an explicit UTC midnight.
 
 **CSS** 19. **`:read-only` matches every `\<select\>`.** A select is never `:read-write`, so a bare `.input:read-only` rule silently strips the border and background off every dropdown in the app. Scope such rules to `input` and `textarea`. 20. **Count your grid children.** Four children in a three-column grid pushes the fourth onto a row of its own — a whole line of height for one icon, on every row. 21. **Never measure a hidden view.** A hidden section has no layout: every box reports 0. Writing that back (e.g. as a CSS variable) collapses the element to nothing. Bail out when a measurement returns 0 and re-measure once the view is on screen. 22. **A nested row inside a column-direction flex parent inherits `flex: 1` as** **"grow vertically"**, leaving controls floating in a tall empty box.
 
 **i18n** 23. **Plurals need a singular sibling key from day one.** "1 items" is what a machine writes, not a person. A `.one` key plus a count helper costs nothing up front and is tedious to retrofit across a dictionary.
 
-**Release** 13. **Add every new module to the SW precache list and bump `CACHE\_VERSION`**, or offline breaks for existing installs only — invisible in dev. 24. **Precache with `cache: "reload"`.** `cache.addAll()` fetches *through the HTTP* *cache*. With any `max-age` on the host (GitHub Pages sends 600s), files fetched in the last few minutes are handed over stale and frozen into the brand-new version cache — where they stay until the next release, because a version cache is written once. The result is a build that is genuinely half old, and **which** halves depends on what the browser happened to be holding. Symptom: a fresh `index.html` with a stale `i18n.js`, so new UI renders raw translation keys and icons vanish.
+**Release** 13. **Add every new module to the SW precache list and bump `CACHE\_VERSION`**, or offline breaks for existing installs only — invisible in dev. 24. **Precache with `cache: "reload"`.** `cache.addAll()` fetches *through the HTTP* *cache*. With any `max-age` on the host (GitHub Pages sends 600s), files fetched in the last few minutes are handed over stale and frozen into the brand-new version cache — where they stay until the next release, because a version cache is written once. The result is a build that is genuinely half old, and **which** halves depends on what the browser happened to be holding. Symptom: a fresh `index.html` with a stale `i18n.js`, so new UI renders raw translation keys and icons vanish.  27. **Withholding `skipWaiting()` on install is only half the fix.** It correctly avoids an already-loaded page fetching a module from a different build mid-session — but without the other half, the new build just sits in `waiting` forever, because nothing tells the user it's there. Offer a reload via a **persistent** toast (`duration: 0`, and see §9's Toasts note on the `0` vs `5000` trap) and post `SKIP\_WAITING` only once they accept. (§8.25)
 
 ```
 \`\`\`js  
