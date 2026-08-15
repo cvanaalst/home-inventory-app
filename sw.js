@@ -7,7 +7,7 @@
 // CACHE_VERSION must be bumped, or offline breaks silently for existing
 // installs (§13.13 / §19.5).
 
-const CACHE_VERSION = "v8";
+const CACHE_VERSION = "v9";
 const CACHE_NAME = `inventory-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -53,8 +53,9 @@ const PRECACHE = [
 
 self.addEventListener("install", (event) => {
   // No skipWaiting(): claiming clients mid-session would hand new assets to
-  // an already-loaded old page. Let the worker wait; the app offers a reload
-  // once it notices (wired up in Phase 6).
+  // an already-loaded old page, leaving it half one build and half another.
+  // The worker waits until the app (app.js's registerServiceWorker) offers
+  // the user a reload and they accept, which posts SKIP_WAITING below.
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       const requests = PRECACHE.map((url) => new Request(url, { cache: "reload" }));
@@ -71,6 +72,11 @@ self.addEventListener("activate", (event) => {
       ),
     ),
   );
+});
+
+/** The app asks for the swap once the user has agreed to reload. */
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {

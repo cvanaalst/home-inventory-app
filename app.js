@@ -18,6 +18,7 @@ import { initSettingsView } from "./view-settings.js";
 import { initTrashView } from "./view-trash.js";
 import { initSyncLogView } from "./view-synclog.js";
 import { checkRedirectReturn } from "./sync.js";
+import { toast } from "./ui.js";
 
 const TAB_TARGETS = ["view-search", "view-items", "view-capture", "view-review", "view-more"];
 const PUSH_TARGETS = [
@@ -236,12 +237,76 @@ function wireSettings() {
 
 // ---------- service worker ----------
 
+/** Registers the service worker and offers a reload when a new build is
+ * ready (§13.13, §15.2). Without this, a returning visitor keeps running
+ * the old app until they happen to hard-reload — and they never will,
+ * because the old app looks like it's working fine. sw.js deliberately
+ * never calls skipWaiting() on install; the new worker waits until the
+ * user agrees to the swap here, so it never hands an already-loaded page
+ * assets from a different build mid-session. */
 function registerServiceWorker() {
-  if (!("serviceWorker" in navigator)) return;
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch((err) => {
+  if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+
+  let reloading = false;
+  // The swap finishes by reloading exactly once. Guarding this matters: a
+  // controllerchange during an already-running reload would loop the page.
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  });
+
+  window.addEventListener("load", async () => {
+    let registration;
+    try {
+      registration = await navigator.serviceWorker.register("./sw.js");
+    } catch (err) {
       console.error("Service worker registration failed:", err);
+      return;
+    }
+
+    // A build may already have been sitting in waiting since a previous visit.
+    if (registration.waiting && navigator.serviceWorker.controller) {
+      offerUpdate(registration.waiting);
+    }
+
+    registration.addEventListener("updatefound", () => {
+      const incoming = registration.installing;
+      if (!incoming) return;
+      incoming.addEventListener("statechange", () => {
+        // No controller means this is the FIRST install, not an update —
+        // there is nothing yet for the user to reload into.
+        if (incoming.state === "installed" && navigator.serviceWorker.controller) {
+          offerUpdate(incoming);
+        }
+      });
     });
+
+    // A long-lived tab would otherwise never ask again on its own. Re-check
+    // whenever it comes back to the foreground, throttled so tab-flicking
+    // doesn't hammer the server.
+    let lastCheck = Date.now();
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastCheck < 60000) return;
+      lastCheck = Date.now();
+      registration.update().catch(() => {
+        /* offline, or the server is unreachable — try again next time */
+      });
+    });
+  });
+}
+
+/** The reload prompt. Stays put until answered — a 5-second toast would be missed. */
+function offerUpdate(worker) {
+  toast(t("update.available"), "info", {
+    actionLabel: t("update.reload"),
+    duration: 0,
+    onAction: () => {
+      // The worker is waiting on purpose; tell it to take over. That fires
+      // controllerchange above, which reloads into the new build as a whole.
+      worker.postMessage({ type: "SKIP_WAITING" });
+    },
   });
 }
 

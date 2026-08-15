@@ -10,9 +10,15 @@ import { locationPath } from "./db.js";
 // never happens at all.
 // ────────────────────────────────────────────────────────────────────────
 
-/** toast(message, kind, { actionLabel, onAction, onExpire, duration }) */
+/** toast(message, kind, { actionLabel, onAction, onExpire, duration }).
+ * `duration: 0` means the toast never expires on its own — for a prompt
+ * like "a new version is ready", not an undo window, where auto-dismissing
+ * would mean the offer to reload was simply never seen. An explicit 0 must
+ * survive `opts.duration || 5000`, which would otherwise treat 0 as falsy
+ * and silently default it back to 5 seconds. */
 export function toast(message, kind = "info", opts = {}) {
-  const { actionLabel, onAction, onExpire, duration = 5000 } = opts;
+  const { actionLabel, onAction, onExpire } = opts;
+  const duration = opts.duration === 0 ? 0 : opts.duration || 5000;
   const root = document.getElementById("toast-root");
   if (!root) return;
 
@@ -50,7 +56,7 @@ export function toast(message, kind = "info", opts = {}) {
   }
 
   root.appendChild(el);
-  timer = setTimeout(() => settle(onExpire), duration);
+  if (duration > 0) timer = setTimeout(() => settle(onExpire), duration);
 
   return { dismiss: () => settle(onAction) };
 }

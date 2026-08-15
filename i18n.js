@@ -130,6 +130,9 @@ const dict = {
     "toast.locationDeleted": "Locatie verwijderd",
     "toast.undo": "Ongedaan maken",
 
+    "update.available": "Nieuwe versie beschikbaar",
+    "update.reload": "Herladen",
+
     "report.stats.locations": "Locaties",
     "report.stats.containers": "Containers",
     "report.stats.items": "Items",
@@ -337,6 +340,9 @@ const dict = {
     "toast.containerDeleted": "Container deleted",
     "toast.locationDeleted": "Location deleted",
     "toast.undo": "Undo",
+
+    "update.available": "A new version is available",
+    "update.reload": "Reload",
 
     "report.stats.locations": "Locations",
     "report.stats.containers": "Containers",
