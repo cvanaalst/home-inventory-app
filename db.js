@@ -533,6 +533,11 @@ function normalizeAttachments(raw) {
       filename: typeof a.filename === "string" ? a.filename.slice(0, 200) : "",
       mimeType: typeof a.mimeType === "string" ? a.mimeType.slice(0, 100) : "",
       size: Number.isFinite(a.size) ? a.size : 0,
+      // Pixel dimensions of the stored image, when it is one — used by
+      // aiplan.js to estimate identification cost without re-decoding the
+      // blob. Absent/0 for non-image attachments or pre-AI-feature records.
+      width: Number.isFinite(a.width) ? a.width : 0,
+      height: Number.isFinite(a.height) ? a.height : 0,
     });
   }
   return out;

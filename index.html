@@ -97,12 +97,69 @@
 
     <section id="view-capture" class="view view-tab" data-view hidden>
       <h1 data-i18n="view.capture.title"></h1>
-      <p class="empty-state" data-i18n="empty.generic"></p>
+
+      <label class="field">
+        <span data-i18n="capture.selectContainer"></span>
+        <select id="capture-container-select"></select>
+      </label>
+      <button class="btn btn-block" id="capture-new-container-btn" data-i18n="capture.newContainer" style="margin: 8px 0 12px"></button>
+      <div id="capture-new-container-form" class="card" hidden>
+        <h2 data-i18n="capture.newContainer"></h2>
+        <div class="field-row">
+          <label class="field" style="max-width: 110px">
+            <span data-i18n="search.codePrefix"></span>
+            <input type="text" id="capture-new-prefix" autocapitalize="characters" />
+          </label>
+          <label class="field grow">
+            <span data-i18n="detail.code"></span>
+            <input type="text" id="capture-new-code" autocapitalize="characters" />
+          </label>
+        </div>
+        <label class="field">
+          <span data-i18n="detail.name"></span>
+          <input type="text" id="capture-new-name" />
+        </label>
+        <label class="field">
+          <span data-i18n="detail.location"></span>
+          <select id="capture-new-location"></select>
+        </label>
+        <div class="row">
+          <button class="btn btn-primary grow" id="capture-new-create" data-i18n="action.create"></button>
+          <button class="btn" id="capture-new-cancel" data-i18n="action.cancel"></button>
+        </div>
+        <p class="error-text" id="capture-new-error" hidden></p>
+      </div>
+
+      <div id="capture-photo-section" hidden>
+        <div class="section-label" id="capture-photo-label"></div>
+        <input type="file" id="capture-photo-input" accept="image/*" capture="environment" multiple hidden />
+        <button class="btn btn-block" id="capture-photo-add-btn" data-i18n="capture.addPhotos" style="margin-bottom: 12px"></button>
+        <div class="capture-photo-grid" id="capture-photo-grid"></div>
+        <p class="empty-state" id="capture-photo-empty" data-i18n="capture.photoEmpty"></p>
+        <button class="btn btn-block btn-primary" id="capture-done-btn" data-i18n="capture.done" style="margin-top: 16px"></button>
+      </div>
     </section>
 
     <section id="view-review" class="view view-tab" data-view hidden>
       <h1 data-i18n="view.review.title"></h1>
-      <p class="empty-state" data-i18n="empty.generic"></p>
+
+      <div class="section-label" data-i18n="review.queueLabel"></div>
+      <p class="empty-state" id="review-queue-empty" hidden data-i18n="review.queueEmpty"></p>
+      <p class="muted" id="review-no-api-key" hidden>
+        <span data-i18n="review.noApiKey"></span>
+        <button type="button" class="btn btn-sm" id="review-no-api-key-btn" data-i18n="review.openSettings"></button>
+      </p>
+      <div class="list" id="review-queue-skeleton" hidden></div>
+      <div class="list" id="review-queue-list"></div>
+      <div id="review-batch-bar" class="review-batch-bar" hidden>
+        <span id="review-batch-count"></span>
+        <span class="muted" id="review-batch-cost"></span>
+        <button type="button" class="btn btn-primary" id="review-batch-run-btn" data-i18n="review.identify"></button>
+      </div>
+
+      <div class="section-label" style="margin-top: 24px" data-i18n="review.draftsLabel"></div>
+      <p class="empty-state" id="review-drafts-empty" data-i18n="review.draftsEmpty"></p>
+      <div id="review-drafts-list"></div>
     </section>
 
     <section id="view-more" class="view view-tab" data-view hidden>
@@ -415,6 +472,16 @@
           <p class="empty-state" id="sync-restore-empty" hidden data-i18n="settings.sync.noBackups"></p>
 
           <button class="btn btn-block" id="sync-disconnect-btn" data-i18n="settings.sync.disconnect" style="margin-top: 16px"></button>
+        </section>
+        <section class="settings-section">
+          <h2 data-i18n="settings.ai.title"></h2>
+          <p class="muted" data-i18n="settings.ai.hint"></p>
+          <label class="field">
+            <span data-i18n="settings.ai.apiKey"></span>
+            <input type="password" id="ai-apikey-input" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="sk-ant-..." />
+          </label>
+          <button class="btn" id="ai-apikey-save-btn" data-i18n="action.save" style="margin-bottom: 8px"></button>
+          <p class="muted" id="ai-apikey-status"></p>
         </section>
         <section class="settings-section">
           <h2 data-i18n="settings.danger.title"></h2>

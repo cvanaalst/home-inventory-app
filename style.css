@@ -1296,6 +1296,97 @@ textarea {
 }
 
 /* ============================================================
+   Capture / Review (AI photo identification)
+   ============================================================ */
+
+.capture-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.capture-photo-tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--tag-bg);
+}
+
+.capture-photo-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.capture-photo-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.review-queue-row {
+  cursor: default;
+}
+
+.review-queue-check {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.review-batch-bar {
+  position: sticky;
+  bottom: calc(var(--tabbar-h) + 12px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.review-batch-bar .btn {
+  margin-left: auto;
+}
+
+.review-draft-group {
+  margin-bottom: 14px;
+}
+
+.review-draft-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.review-draft-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-add-draft-row {
+  margin-top: 10px;
+}
+
+/* ============================================================
    Responsive
    ============================================================ */
 

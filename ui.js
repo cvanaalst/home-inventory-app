@@ -286,6 +286,31 @@ export function statusBadgeClass(status) {
   return "badge";
 }
 
+const RESIZE_MAX_DIM = 1600;
+const RESIZE_QUALITY = 0.85;
+
+/** Downscales an image File/Blob to at most maxDim on its long edge and
+ * re-encodes as JPEG, returning { blob, width, height }. One size only —
+ * the same blob is both what's shown in the capture grid (via CSS) and what
+ * gets sent to Claude, since nothing in the app needs a separate thumbnail
+ * yet and the default cap already roughly matches the model's own resize
+ * ceiling (aiplan.js's cost estimate assumes it). An image already at or
+ * under the cap is re-encoded but not upscaled. */
+export async function resizeImageToBlob(file, maxDim = RESIZE_MAX_DIM, quality = RESIZE_QUALITY) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const width = Math.round(bitmap.width * scale);
+  const height = Math.round(bitmap.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+  return { blob, width, height };
+}
+
 /** Fills a <select> with "— no location —" + every location's full path,
  * sorted. Used identically by the new-container form, the container-detail
  * location field, and the search view's browse filter. */

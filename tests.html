@@ -28,6 +28,7 @@ import { render } from "./markdown.js";
 import * as report from "./report.js";
 import * as merge from "./merge.js";
 import { parseItemsPayload, buildMultipartBody } from "./sync.js";
+import * as aiplan from "./aiplan.js";
 
 const results = document.getElementById("results");
 let pass = 0;
@@ -665,6 +666,85 @@ section("buildMultipartBody");
   assertTrue(body.includes('{"name":"items.json"}'), "the metadata part carries the file's Drive metadata as JSON");
   assertTrue(body.includes('{"v":1,"items":[]}'), "the content part carries the actual file body verbatim");
   assertTrue(body.trim().endsWith("--inventory-sync-boundary--"), "the body is terminated by the closing boundary marker Drive's multipart parser requires");
+}
+
+section("estimateImageTokens");
+assertEqual(aiplan.estimateImageTokens(1000, 750), Math.ceil((1000 * 750) / 750), "an image under the resize ceiling is costed at its own pixel count, no downscaling applied");
+assertTrue(aiplan.estimateImageTokens(4032, 3024) > 0, "a full-resolution phone photo still produces a positive token estimate");
+assertEqual(
+  aiplan.estimateImageTokens(4032, 3024),
+  aiplan.estimateImageTokens(4032 * 2, 3024 * 2),
+  "two images with the same aspect ratio both above the resize ceiling cost the same — both get scaled down to the same effective megapixel cap, matching what the API itself does server-side",
+);
+assertEqual(aiplan.estimateImageTokens(0, 0), 0, "degenerate zero dimensions cost nothing rather than NaN or Infinity");
+assertEqual(aiplan.estimateImageTokens(-100, 200), 0, "a negative dimension (corrupt attachment metadata) is treated as invalid, not as a huge negative token count");
+assertEqual(aiplan.estimateImageTokens(undefined, 200), 0, "a missing dimension (attachment saved before this feature existed) degrades to zero cost rather than throwing");
+
+section("buildPrompt");
+{
+  const single = aiplan.buildPrompt(1);
+  assertTrue(single.system.length > 0, "single-photo prompt always carries a non-empty system instruction");
+  assertTrue(!/these \d+ photos/i.test(single.instructions), "a one-photo run does not talk about combining multiple photos — there is nothing to combine");
+  const multi = aiplan.buildPrompt(3);
+  assertTrue(/3/.test(multi.instructions), "a multi-photo run's instructions mention the actual photo count so the model knows how many angles it's reconciling");
+  assertTrue(multi.instructions !== single.instructions, "single- and multi-photo wording genuinely differ, not just the count word");
+  assertEqual(aiplan.buildPrompt(0).instructions, aiplan.buildPrompt(1).instructions, "a zero/invalid photo count falls back to the single-photo wording rather than producing '0 photos' text");
+}
+
+section("draftOutputSchema");
+{
+  const schema = aiplan.draftOutputSchema();
+  assertEqual(schema.required, ["items"], "the top-level schema requires the items array — the API's structured-output guarantee is only as strong as this required list");
+  assertEqual(schema.properties.items.items.required, ["title"], "only title is required per item — quantity/category/tags are optional so the model isn't forced to invent a category it can't determine");
+  assertEqual(schema.additionalProperties, false, "no additional top-level properties allowed, keeping the response shape exactly what parseDraft expects");
+}
+
+section("parseDraft");
+assertEqual(aiplan.parseDraft("not json"), [], "unparseable text degrades to an empty draft list rather than throwing mid-batch-run");
+assertEqual(aiplan.parseDraft("null"), [], "valid JSON that isn't the expected {items} object still yields no drafts");
+assertEqual(aiplan.parseDraft(JSON.stringify({ items: [] })), [], "an empty items array is a legitimate 'nothing recognized' result, not an error");
+assertEqual(
+  aiplan.parseDraft(JSON.stringify({ items: [{ title: "  Hammer  ", quantity: 2, category: "TOOLS", tags: ["metal", "hand-tool"] }] })),
+  [{ title: "Hammer", quantity: 2, category: "tools", tags: ["metal", "hand-tool"] }],
+  "a well-formed item is trimmed, quantity kept, category lowercased — matching normalizeCategory's own convention in db.js so a confirmed draft round-trips unchanged",
+);
+assertEqual(
+  aiplan.parseDraft(JSON.stringify({ items: [{ title: "Screwdriver" }] })),
+  [{ title: "Screwdriver", quantity: 1, category: "", tags: [] }],
+  "omitted optional fields default the same way makeRecord's own normalizers do — quantity 1, empty category, no tags",
+);
+assertEqual(
+  aiplan.parseDraft(JSON.stringify({ items: [{ title: "" }, { quantity: 5 }, { title: "Valid" }] })),
+  [{ title: "Valid", quantity: 1, category: "", tags: [] }],
+  "entries with no usable title are dropped rather than surfacing as blank drafts the user has to notice and delete",
+);
+assertEqual(
+  aiplan.parseDraft(JSON.stringify({ items: Array.from({ length: 60 }, (_, i) => ({ title: `Item ${i}` })) })).length,
+  40,
+  "an implausibly long item list from a single photo is capped, the same defensive posture as expandNameRange's RANGE_MAX",
+);
+
+section("estimateContainerCost / planBatch");
+{
+  const zero = aiplan.estimateContainerCost([]);
+  assertTrue(zero.inputTokens > 0, "even a container with no photos yet costs the fixed prompt-overhead tokens, so an empty selection still shows a (small) non-zero estimate rather than a misleading $0.00");
+  const onePhoto = aiplan.estimateContainerCost([{ width: 1000, height: 750 }]);
+  const twoPhotos = aiplan.estimateContainerCost([{ width: 1000, height: 750 }, { width: 1000, height: 750 }]);
+  assertTrue(twoPhotos.inputTokens > onePhoto.inputTokens, "a second photo of the same container adds its own image tokens on top, not a flat per-container cost");
+  assertTrue(onePhoto.usd > 0, "the cost estimate is expressed in a positive USD amount using Haiku's list price");
+
+  const plan = aiplan.planBatch([
+    { id: "a", photos: [{ width: 1000, height: 750 }] },
+    { id: "b", photos: [{ width: 1000, height: 750 }, { width: 1000, height: 750 }] },
+  ]);
+  assertEqual(plan.total.containerCount, 2, "the batch total counts every container passed in");
+  assertEqual(plan.perContainer.map((c) => c.id), ["a", "b"], "per-container estimates are returned in the same order and keyed by the caller's own id, so the UI can zip them back to its row list");
+  assertEqual(
+    plan.total.inputTokens,
+    plan.perContainer.reduce((sum, c) => sum + c.inputTokens, 0),
+    "the grand total is exactly the sum of the per-container estimates — no separate rounding or double-counting of shared overhead",
+  );
+  assertEqual(aiplan.planBatch([]).total, { inputTokens: 0, outputTokens: 0, usd: 0, containerCount: 0 }, "an empty batch totals to all zeros rather than NaN from reducing over nothing");
 }
 
 finish();

@@ -14,6 +14,7 @@ import {
   restoreBackup,
   disconnect,
 } from "./sync.js";
+import { getApiKey, setApiKey, hasApiKey } from "./ai.js";
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -229,6 +230,23 @@ export function initSettingsView() {
     toast(t("settings.sync.disconnected"), "info");
   });
 
+  // ---------- AI identification ----------
+
+  const apiKeyInput = document.getElementById("ai-apikey-input");
+  const apiKeySaveBtn = document.getElementById("ai-apikey-save-btn");
+  const apiKeyStatusEl = document.getElementById("ai-apikey-status");
+
+  async function refreshApiKeyStatus() {
+    if (document.activeElement !== apiKeyInput) apiKeyInput.value = await getApiKey();
+    apiKeyStatusEl.textContent = (await hasApiKey()) ? t("settings.ai.configured") : t("settings.ai.notConfigured");
+  }
+
+  apiKeySaveBtn.addEventListener("click", async () => {
+    await setApiKey(apiKeyInput.value);
+    await refreshApiKeyStatus();
+    toast(t("settings.sync.saved"), "info");
+  });
+
   // ---------- danger zone ----------
 
   const wipeBtn = document.getElementById("wipe-data-btn");
@@ -271,6 +289,7 @@ export function initSettingsView() {
   async function show() {
     await refreshStorageInfo();
     await refreshSyncStatus();
+    await refreshApiKeyStatus();
     await paintInstall();
   }
 
