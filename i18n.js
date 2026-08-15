@@ -125,6 +125,12 @@ const dict = {
     "locations.containerCount.one": "1 container",
     "locations.containerCount": "{n} containers",
     "locations.nameRequired": "Naam is verplicht",
+    "locations.copy": "Kopiëren",
+    "locations.range.toggle": "Maak een reeks",
+    "locations.range.from": "Van",
+    "locations.range.to": "Tot en met",
+    "locations.range.hint": "Gebruik {n} in de naam voor het volgnummer, bijv. \"RIJ {n}\".",
+    "locations.range.invalid": "Gebruik {n} in de naam, en zorg dat \"tot en met\" niet kleiner is dan \"van\".",
 
     "toast.itemDeleted": "Item verwijderd",
     "toast.containerDeleted": "Container verwijderd",
@@ -196,6 +202,11 @@ const dict = {
     "settings.sync.restoreError": "Herstellen mislukt — zie het synclogboek.",
     "settings.sync.backupsLoadError": "Kon back-uplijst niet laden.",
     "settings.sync.disconnected": "Verbinding verbroken.",
+
+    "settings.danger.title": "Gevarenzone",
+    "settings.danger.hint": "Voor een frisse start: wist alle locaties, containers en items. Instellingen (thema, taal, sync) blijven behouden.",
+    "settings.danger.wipeBtn": "Alle gegevens wissen",
+    "settings.danger.confirmWipe": "Dit verwijdert al je locaties, containers en items voor altijd. Instellingen (thema, taal, sync) blijven behouden. Dit kan niet ongedaan worden gemaakt.",
 
     "trash.type.location": "Locatie",
     "trash.type.container": "Container",
@@ -344,6 +355,12 @@ const dict = {
     "locations.containerCount.one": "1 container",
     "locations.containerCount": "{n} containers",
     "locations.nameRequired": "Name is required",
+    "locations.copy": "Copy",
+    "locations.range.toggle": "Create a range",
+    "locations.range.from": "From",
+    "locations.range.to": "Through",
+    "locations.range.hint": "Use {n} in the name for the sequence number, e.g. \"ROW {n}\".",
+    "locations.range.invalid": "Use {n} in the name, and make sure \"through\" isn't smaller than \"from\".",
 
     "toast.itemDeleted": "Item deleted",
     "toast.containerDeleted": "Container deleted",
@@ -415,6 +432,11 @@ const dict = {
     "settings.sync.restoreError": "Restore failed — see the sync log.",
     "settings.sync.backupsLoadError": "Couldn't load the backup list.",
     "settings.sync.disconnected": "Disconnected.",
+
+    "settings.danger.title": "Danger zone",
+    "settings.danger.hint": "For a fresh start: clears all locations, containers, and items. Settings (theme, language, sync) are kept.",
+    "settings.danger.wipeBtn": "Clear all data",
+    "settings.danger.confirmWipe": "This permanently deletes all your locations, containers, and items. Settings (theme, language, sync) are kept. This cannot be undone.",
 
     "trash.type.location": "Location",
     "trash.type.container": "Container",

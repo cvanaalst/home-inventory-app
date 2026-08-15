@@ -2,7 +2,7 @@
 // and wired directly in app.js (needed at boot, before any view exists);
 // everything here is view-local and needs fresh data on every open.
 
-import { getStorageEstimate, requestPersistentStorage, getMeta, setMeta } from "./db.js";
+import { getStorageEstimate, requestPersistentStorage, getMeta, setMeta, clearItems, clearMedia } from "./db.js";
 import { t } from "./i18n.js";
 import { toast, confirmDialog, escapeHtml } from "./ui.js";
 import {
@@ -227,6 +227,25 @@ export function initSettingsView() {
     await disconnect();
     await refreshSyncStatus();
     toast(t("settings.sync.disconnected"), "info");
+  });
+
+  // ---------- danger zone ----------
+
+  const wipeBtn = document.getElementById("wipe-data-btn");
+
+  wipeBtn.addEventListener("click", async () => {
+    const ok = await confirmDialog(t("settings.danger.confirmWipe"), t("settings.danger.wipeBtn"));
+    if (!ok) return;
+    // A full wipe touches items/versions/media only — the meta store (theme,
+    // language, density, sync client ID) is deliberately left untouched, so
+    // "fresh start" doesn't also mean reconfiguring the app from scratch.
+    await clearItems();
+    await clearMedia();
+    // Every view's in-memory state (containersById maps, cached lists, etc.)
+    // is now stale in ways no single refresh() call fully unwinds — a reload
+    // is the simplest way to guarantee a fully consistent empty state, and
+    // landing on an empty Search tab is itself the confirmation it worked.
+    location.reload();
   });
 
   // ---------- install hint ----------

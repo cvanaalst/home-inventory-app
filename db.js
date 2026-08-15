@@ -318,6 +318,13 @@ async function getAllMediaIds() {
   return reqToPromise(db.transaction("media", "readonly").objectStore("media").getAllKeys());
 }
 
+async function clearMedia() {
+  const db = await openDB();
+  const tx = db.transaction("media", "readwrite");
+  tx.objectStore("media").clear();
+  await txDone(tx);
+}
+
 /** Copies a media record under a brand-new id and returns that id. Used by
  * trash restore (§8.5): a restored record gets a new id, so any attachment
  * it carries needs its own new-id media copy — sharing the old blob would
@@ -636,6 +643,23 @@ function nextCode(existingCodes, prefix) {
   return `${p}-${String(highest + 1).padStart(3, "0")}`;
 }
 
+const RANGE_MAX = 200;
+
+/** Expands a "{n}"-containing name pattern over an inclusive numeric range
+ * — "RIJ {n}", 1, 5 -> ["RIJ 1", ..., "RIJ 5"] — for bulk location
+ * creation. Never throws: a pattern missing the token, or a nonsensical
+ * range, normalizes to an empty list rather than guessing what the caller
+ * meant. Capped at RANGE_MAX so a typo (e.g. "to" 100000) can't silently
+ * queue an enormous batch write. */
+function expandNameRange(pattern, from, to, max = RANGE_MAX) {
+  if (typeof pattern !== "string" || !pattern.includes("{n}")) return [];
+  const start = Number.parseInt(from, 10);
+  const end = Number.parseInt(to, 10);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return [];
+  const count = Math.min(end - start + 1, max);
+  return Array.from({ length: count }, (_, i) => pattern.replace("{n}", String(start + i)));
+}
+
 function compareValues(a, b) {
   if (typeof a === "number" && typeof b === "number") return a - b;
   return String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true, sensitivity: "base" });
@@ -766,6 +790,7 @@ export {
   deleteMedia,
   getAllMediaIds,
   cloneMedia,
+  clearMedia,
   // meta + sync log
   getMeta,
   setMeta,
@@ -800,4 +825,5 @@ export {
   appendActivity,
   locationPath,
   nextCode,
+  expandNameRange,
 };

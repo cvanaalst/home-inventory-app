@@ -139,6 +139,16 @@
   box-sizing: border-box;
 }
 
+/* The browser's default [hidden] { display: none } is a user-agent-origin
+   rule, which loses to ANY author rule setting display on the same element
+   — regardless of specificity, author beats user-agent in the cascade. A
+   plain `class="row" hidden` (an author .row rule sets display: flex) is
+   therefore silently ignored without this: real bug, found via a hidden
+   button row rendering visible despite `.hidden === true`. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   height: 100%;

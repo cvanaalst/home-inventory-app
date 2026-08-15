@@ -1,9 +1,9 @@
-// Manage the room/storage/section/name location hierarchy. Add, edit,
-// soft-delete (undo-on-toast — same reversible pattern as every other
-// record type; a container pointing at a deleted location just renders
-// "no location" rather than being blocked from deleting).
+// Manage the room/storage/section/name location hierarchy. Add, edit, copy,
+// range-create, soft-delete (undo-on-toast — same reversible pattern as
+// every other record type; a container pointing at a deleted location just
+// renders "no location" rather than being blocked from deleting).
 
-import { queryItems, getItem, putItem, makeRecord } from "./db.js";
+import { queryItems, getItem, putItem, putItems, makeRecord, expandNameRange } from "./db.js";
 import { toast, attachSwipeActions, escapeHtml } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
@@ -21,6 +21,22 @@ export function initLocationsView() {
   const groupsEl = document.getElementById("location-groups");
   const emptyEl = document.getElementById("locations-empty");
 
+  const editActionsRow = document.getElementById("location-edit-actions");
+  const copyBtn = document.getElementById("location-copy-btn");
+  const deleteBtn = document.getElementById("location-delete-btn");
+
+  const rangeToggleRow = document.getElementById("location-range-toggle-row");
+  const rangeToggle = document.getElementById("location-range-toggle");
+  const rangeFields = document.getElementById("location-range-fields");
+  const rangeFrom = document.getElementById("location-range-from");
+  const rangeTo = document.getElementById("location-range-to");
+  const rangeHint = document.getElementById("location-range-hint");
+
+  const roomOptionsEl = document.getElementById("location-room-options");
+  const storageOptionsEl = document.getElementById("location-storage-options");
+  const sectionOptionsEl = document.getElementById("location-section-options");
+  const nameOptionsEl = document.getElementById("location-name-options");
+
   let editingId = null;
   const pendingDeletes = new Set(); // location ids optimistically hidden, write deferred to toast expiry
 
@@ -33,6 +49,16 @@ export function initLocationsView() {
     errorEl.hidden = true;
     form.hidden = false;
     addBtn.hidden = true;
+
+    // Range creation only makes sense for a brand-new batch of locations,
+    // never while editing one that already exists.
+    const isEditing = !!editId;
+    editActionsRow.hidden = !isEditing;
+    rangeToggleRow.hidden = isEditing;
+    rangeToggle.checked = false;
+    rangeFields.hidden = true;
+    rangeHint.hidden = true;
+
     nameInput.focus();
   }
 
@@ -45,6 +71,25 @@ export function initLocationsView() {
   addBtn.addEventListener("click", () => openForm());
   cancelBtn.addEventListener("click", closeForm);
 
+  rangeToggle.addEventListener("change", () => {
+    rangeFields.hidden = !rangeToggle.checked;
+    rangeHint.hidden = !rangeToggle.checked;
+  });
+
+  // Reopens the form in CREATE mode, carrying over this location's
+  // room/storage/section but leaving the name blank — the fast path for
+  // "another one in the same spot, different name/number".
+  copyBtn.addEventListener("click", () => {
+    openForm({ room: roomInput.value.trim(), storage: storageInput.value.trim(), section: sectionInput.value.trim() });
+  });
+
+  deleteBtn.addEventListener("click", async () => {
+    if (!editingId) return;
+    const loc = await getItem(editingId);
+    closeForm();
+    if (loc) deleteLocation(loc);
+  });
+
   saveBtn.addEventListener("click", async () => {
     const title = nameInput.value.trim();
     if (!title) {
@@ -52,12 +97,25 @@ export function initLocationsView() {
       errorEl.hidden = false;
       return;
     }
-    const fields = {
-      title,
-      room: roomInput.value.trim(),
-      storage: storageInput.value.trim(),
-      section: sectionInput.value.trim(),
-    };
+    const room = roomInput.value.trim();
+    const storage = storageInput.value.trim();
+    const section = sectionInput.value.trim();
+
+    if (!editingId && rangeToggle.checked) {
+      const names = expandNameRange(title, rangeFrom.value.trim(), rangeTo.value.trim());
+      if (!names.length) {
+        errorEl.textContent = t("locations.range.invalid");
+        errorEl.hidden = false;
+        return;
+      }
+      const records = names.map((name) => makeRecord({ type: "location", title: name, room, storage, section }));
+      await putItems(records);
+      closeForm();
+      await refresh();
+      return;
+    }
+
+    const fields = { title, room, storage, section };
     if (editingId) {
       const existing = await getItem(editingId);
       await putItem({ ...existing, ...fields });
@@ -131,11 +189,28 @@ export function initLocationsView() {
     }
   }
 
+  /** Distinct existing values per field, so the "add location" form can
+   * suggest them via <datalist> — typing "Bureau Chris" once and picking
+   * it from then on avoids both retyping and near-duplicate typos. */
+  function populateDatalists(locations) {
+    const distinct = (values) =>
+      [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+    const fill = (el, values) => {
+      el.innerHTML = values.map((v) => `<option value="${escapeHtml(v)}"></option>`).join("");
+    };
+    fill(roomOptionsEl, distinct(locations.map((l) => l.room)));
+    fill(storageOptionsEl, distinct(locations.map((l) => l.storage)));
+    fill(sectionOptionsEl, distinct(locations.map((l) => l.section)));
+    fill(nameOptionsEl, distinct(locations.map((l) => l.title)));
+  }
+
   async function refresh() {
     const [{ results: locations }, { results: containers }] = await Promise.all([
       queryItems({ type: "location" }),
       queryItems({ type: "container" }),
     ]);
+
+    populateDatalists(locations);
 
     containerCounts = new Map();
     for (const c of containers) {

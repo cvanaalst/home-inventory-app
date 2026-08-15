@@ -249,23 +249,44 @@
         <div id="location-form" class="card" hidden>
           <label class="field">
             <span data-i18n="locations.room"></span>
-            <input type="text" id="location-room" />
+            <input type="text" id="location-room" list="location-room-options" autocomplete="off" />
           </label>
           <label class="field">
             <span data-i18n="locations.storage"></span>
-            <input type="text" id="location-storage" />
+            <input type="text" id="location-storage" list="location-storage-options" autocomplete="off" />
           </label>
           <label class="field">
             <span data-i18n="locations.section"></span>
-            <input type="text" id="location-section" />
+            <input type="text" id="location-section" list="location-section-options" autocomplete="off" />
           </label>
-          <label class="field" style="margin-bottom: 0">
+          <label class="field" id="location-name-field" style="margin-bottom: 0">
             <span data-i18n="locations.name"></span>
-            <input type="text" id="location-name" />
+            <input type="text" id="location-name" list="location-name-options" autocomplete="off" />
           </label>
+
+          <label class="row" id="location-range-toggle-row" style="margin-top: 12px; align-items: center; gap: 8px">
+            <input type="checkbox" id="location-range-toggle" style="width: auto" />
+            <span data-i18n="locations.range.toggle"></span>
+          </label>
+          <div class="field-row" id="location-range-fields" hidden style="margin-top: 8px">
+            <label class="field">
+              <span data-i18n="locations.range.from"></span>
+              <input type="text" id="location-range-from" inputmode="numeric" value="1" />
+            </label>
+            <label class="field">
+              <span data-i18n="locations.range.to"></span>
+              <input type="text" id="location-range-to" inputmode="numeric" value="5" />
+            </label>
+          </div>
+          <p class="muted" id="location-range-hint" hidden data-i18n="locations.range.hint"></p>
+
           <div class="row" style="margin-top: 12px">
             <button class="btn btn-primary grow" id="location-save" data-i18n="action.save"></button>
             <button class="btn" id="location-cancel" data-i18n="action.cancel"></button>
+          </div>
+          <div class="row" id="location-edit-actions" hidden style="margin-top: 8px">
+            <button class="btn grow" id="location-copy-btn" data-i18n="locations.copy"></button>
+            <button class="btn btn-danger" id="location-delete-btn" data-i18n="action.delete"></button>
           </div>
           <p class="error-text" id="location-error" hidden></p>
         </div>
@@ -273,6 +294,11 @@
         <p class="empty-state" id="locations-empty" hidden data-i18n="locations.empty"></p>
       </div>
     </section>
+
+    <datalist id="location-room-options"></datalist>
+    <datalist id="location-storage-options"></datalist>
+    <datalist id="location-section-options"></datalist>
+    <datalist id="location-name-options"></datalist>
 
     <section id="view-labels" class="view view-pushed" data-view hidden>
       <header class="view-header">
@@ -389,6 +415,11 @@
           <p class="empty-state" id="sync-restore-empty" hidden data-i18n="settings.sync.noBackups"></p>
 
           <button class="btn btn-block" id="sync-disconnect-btn" data-i18n="settings.sync.disconnect" style="margin-top: 16px"></button>
+        </section>
+        <section class="settings-section">
+          <h2 data-i18n="settings.danger.title"></h2>
+          <p class="muted" data-i18n="settings.danger.hint"></p>
+          <button class="btn btn-block btn-danger" id="wipe-data-btn" data-i18n="settings.danger.wipeBtn" style="margin-top: 10px"></button>
         </section>
       </div>
     </section>
