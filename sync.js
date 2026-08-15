@@ -168,11 +168,24 @@ function redirectToGoogle(clientId, pendingAction) {
   });
 }
 
+// Safari's Intelligent Tracking Prevention (and iOS Safari generally) can
+// block the popup's postMessage back to this tab entirely — GIS then never
+// calls EITHER callback, even after the user completes consent, and the
+// promise below would hang forever with nothing to catch. This is worse
+// than a *blocked* popup (which GIS does report via error_callback): the
+// popup opens and works, the token exchange just never makes it back.
+// Generous on purpose — long enough that a real user working through a
+// multi-screen consent flow (pick account, "app not verified" warning,
+// approve) is never yanked away mid-flow by a false-positive timeout.
+const POPUP_CALLBACK_TIMEOUT_MS = 45_000;
+
 /** Resolves to a valid access token: a cached one if still fresh, else the
- * GIS popup flow. If the popup is blocked (the normal case for iOS
- * standalone PWAs, which never allow popups at all), falls back to a
- * full-page redirect — the pending action is stashed first so
- * checkRedirectReturn() can resume it once the page reloads (§7). */
+ * GIS popup flow. Falls back to a full-page redirect if the popup is
+ * blocked outright (the normal case for iOS standalone PWAs, which never
+ * allow popups at all) OR if the popup completes but its callback never
+ * fires (Safari/ITP — see POPUP_CALLBACK_TIMEOUT_MS above). The pending
+ * action is stashed first so checkRedirectReturn() can resume it once the
+ * page reloads (§7). */
 async function requestToken({ pendingAction = "sync" } = {}) {
   const cached = await getCachedToken();
   if (cached) return cached;
@@ -184,29 +197,42 @@ async function requestToken({ pendingAction = "sync" } = {}) {
 
   return new Promise((resolve, reject) => {
     let settled = false;
+    let timeoutId = null;
+
+    function settle(fn) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      fn();
+    }
+
     const client = google.accounts.oauth2.initTokenClient({
       client_id: clientId,
       scope: SCOPE,
       callback: (resp) => {
-        if (settled) return;
-        settled = true;
-        if (resp.error) {
-          reject(syncError("401", resp.error));
-          return;
-        }
-        storeToken(resp.access_token, resp.expires_in).then(() => resolve(resp.access_token));
+        settle(() => {
+          if (resp.error) {
+            reject(syncError("401", resp.error));
+            return;
+          }
+          storeToken(resp.access_token, resp.expires_in).then(() => resolve(resp.access_token));
+        });
       },
       error_callback: (err) => {
-        if (settled) return;
-        settled = true;
-        if (err?.type === "popup_failed_to_open" || err?.type === "popup_closed") {
-          redirectToGoogle(clientId, pendingAction); // navigates away; nothing after this runs
-          return;
-        }
-        reject(syncError("401", err?.type || "auth-failed"));
+        settle(() => {
+          if (err?.type === "popup_failed_to_open" || err?.type === "popup_closed") {
+            redirectToGoogle(clientId, pendingAction); // navigates away; nothing after this runs
+            return;
+          }
+          reject(syncError("401", err?.type || "auth-failed"));
+        });
       },
     });
     client.requestAccessToken({ prompt: "" });
+
+    timeoutId = setTimeout(() => {
+      settle(() => redirectToGoogle(clientId, pendingAction));
+    }, POPUP_CALLBACK_TIMEOUT_MS);
   });
 }
 

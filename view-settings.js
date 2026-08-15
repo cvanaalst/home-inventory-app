@@ -97,7 +97,9 @@ export function initSettingsView() {
 
   syncNowBtn.addEventListener("click", async () => {
     syncNowBtn.disabled = true;
+    syncNowBtn.textContent = t("settings.sync.waiting");
     const result = await syncNow();
+    syncNowBtn.textContent = t("settings.sync.now");
     await refreshSyncStatus();
     toast(
       result.outcome === "success" ? t("settings.sync.syncSuccess") : t("settings.sync.syncError"),
@@ -107,7 +109,9 @@ export function initSettingsView() {
 
   backupBtn.addEventListener("click", async () => {
     backupBtn.disabled = true;
+    backupBtn.textContent = t("settings.sync.waiting");
     const result = await backupNow();
+    backupBtn.textContent = t("settings.sync.backupNow");
     await refreshSyncStatus();
     toast(
       result.outcome === "success" ? t("settings.sync.backupSuccess") : t("settings.sync.backupError"),
