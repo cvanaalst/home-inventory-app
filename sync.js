@@ -109,22 +109,34 @@ function buildMultipartBlob(metadata, contentBlob) {
 // OAuth — Google Identity Services popup, with a redirect fallback
 // ────────────────────────────────────────────────────────────────────────
 
-let gisLoadPromise = null;
+const AUTH_STATE_KEY = "syncAuthState";
+
+// Safari's Intelligent Tracking Prevention (and iOS Safari generally) can
+// block the popup's postMessage back to this tab entirely — GIS then never
+// calls EITHER callback, even after the user completes consent, and a
+// naive wait would hang forever with nothing to catch. This is worse than
+// a *blocked* popup (which GIS does report via error_callback): the popup
+// opens and works, the token exchange just never makes it back. Generous
+// on purpose — long enough that a real user working through a
+// multi-screen consent flow (pick account, "app not verified" warning,
+// approve) is never yanked away mid-flow by a false-positive timeout.
+const POPUP_CALLBACK_TIMEOUT_MS = 90_000;
+
+/** Loads the GIS script. Never throws — resolves false on any failure
+ * (offline, blocked, a third-party script that never answers), so a
+ * failure here just means "try the redirect instead" rather than an
+ * uncaught error breaking the whole sign-in attempt. */
 function loadGis() {
-  if (gisLoadPromise) return gisLoadPromise;
-  gisLoadPromise = new Promise((resolve, reject) => {
-    if (window.google?.accounts?.oauth2) {
-      resolve();
-      return;
-    }
+  if (window.google?.accounts?.oauth2) return Promise.resolve(true);
+  return new Promise((resolve) => {
     const script = document.createElement("script");
     script.src = GIS_SRC;
     script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(syncError("gis-load-failed", "Could not load Google Identity Services"));
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
     document.head.appendChild(script);
+    setTimeout(() => resolve(!!window.google?.accounts?.oauth2), 8000);
   });
-  return gisLoadPromise;
 }
 
 async function getClientId() {
@@ -134,12 +146,16 @@ async function getClientId() {
 
 /** The exact origin (no path) and redirect URL (with trailing slash) that
  * must be registered in Google Cloud Console, character for character
- * (§17). Exposed so Settings ▸ Sync can print them for the user to copy. */
+ * (§17). Exposed so Settings ▸ Sync can print them for the user to copy.
+ * Google matches redirect_uri EXACTLY, so ".../index.html" and ".../" must
+ * never produce two different strings for the same app — only one of
+ * which would ever be registered. */
 export function oauthOrigin() {
   return location.origin;
 }
 export function oauthRedirectUri() {
-  return location.origin + location.pathname.replace(/[^/]*$/, "");
+  const path = location.pathname.replace(/index\.html$/i, "");
+  return `${location.origin}${path.endsWith("/") ? path : `${path}/`}`;
 }
 
 async function getCachedToken() {
@@ -154,38 +170,66 @@ async function storeToken(accessToken, expiresInSeconds) {
   await setMeta("syncToken", { accessToken, expiresAt });
 }
 
-function redirectToGoogle(clientId, pendingAction) {
+/** Tries the GIS popup. Resolves `{accessToken, expiresIn}`, or null if
+ * the popup could not be used at all — blocked, GIS failed to load, or
+ * (the Safari case) the popup completes but neither callback ever fires
+ * within POPUP_CALLBACK_TIMEOUT_MS. Never throws; every failure mode
+ * collapses to the same outcome, "try the redirect instead". */
+async function requestTokenViaPopup(clientId) {
+  const ready = await loadGis();
+  if (!ready) return null;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    try {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: SCOPE,
+        callback: (resp) => {
+          if (resp?.access_token) done({ accessToken: resp.access_token, expiresIn: resp.expires_in });
+          else done(null);
+        },
+        error_callback: () => done(null),
+      });
+      client.requestAccessToken({ prompt: "" });
+      setTimeout(() => done(null), POPUP_CALLBACK_TIMEOUT_MS);
+    } catch {
+      done(null);
+    }
+  });
+}
+
+/** Full-page redirect to Google (the implicit flow), by hand — no
+ * library. Does not meaningfully return: the browser leaves the page. A
+ * random state nonce is stored and echoed back by Google, so a returning
+ * redirect can be verified as the one this device actually asked for
+ * (rather than a stale or replayed one). */
+async function redirectToGoogle(clientId, pendingAction) {
+  const nonce = crypto.randomUUID();
+  await setMeta(AUTH_STATE_KEY, nonce);
+  await setMeta(PENDING_ACTION_KEY, pendingAction || "sync");
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: oauthRedirectUri(),
     response_type: "token",
     scope: SCOPE,
     include_granted_scopes: "true",
-    prompt: "consent",
+    state: nonce,
   });
-  setMeta(PENDING_ACTION_KEY, pendingAction).finally(() => {
-    location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  });
+  location.assign(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
 }
 
-// Safari's Intelligent Tracking Prevention (and iOS Safari generally) can
-// block the popup's postMessage back to this tab entirely — GIS then never
-// calls EITHER callback, even after the user completes consent, and the
-// promise below would hang forever with nothing to catch. This is worse
-// than a *blocked* popup (which GIS does report via error_callback): the
-// popup opens and works, the token exchange just never makes it back.
-// Generous on purpose — long enough that a real user working through a
-// multi-screen consent flow (pick account, "app not verified" warning,
-// approve) is never yanked away mid-flow by a false-positive timeout.
-const POPUP_CALLBACK_TIMEOUT_MS = 45_000;
-
-/** Resolves to a valid access token: a cached one if still fresh, else the
- * GIS popup flow. Falls back to a full-page redirect if the popup is
- * blocked outright (the normal case for iOS standalone PWAs, which never
- * allow popups at all) OR if the popup completes but its callback never
- * fires (Safari/ITP — see POPUP_CALLBACK_TIMEOUT_MS above). The pending
- * action is stashed first so checkRedirectReturn() can resume it once the
- * page reloads (§7). */
+/** Resolves to a valid access token, or null if a sign-in is now underway
+ * via the redirect flow — the caller cannot complete right now and should
+ * log a "skipped" outcome, not an error; the redirect will run its course
+ * and resume the action on return (via checkRedirectReturn). Throws only
+ * for a genuinely unrecoverable local problem: no client ID configured. */
 async function requestToken({ pendingAction = "sync" } = {}) {
   const cached = await getCachedToken();
   if (cached) return cached;
@@ -193,71 +237,53 @@ async function requestToken({ pendingAction = "sync" } = {}) {
   const clientId = await getClientId();
   if (!clientId) throw syncError("no-client-id", "No OAuth client ID is configured yet");
 
-  await loadGis();
+  const viaPopup = await requestTokenViaPopup(clientId);
+  if (viaPopup) {
+    await storeToken(viaPopup.accessToken, viaPopup.expiresIn);
+    return viaPopup.accessToken;
+  }
 
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    let timeoutId = null;
-
-    function settle(fn) {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeoutId);
-      fn();
-    }
-
-    const client = google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: SCOPE,
-      callback: (resp) => {
-        settle(() => {
-          if (resp.error) {
-            reject(syncError("401", resp.error));
-            return;
-          }
-          storeToken(resp.access_token, resp.expires_in).then(() => resolve(resp.access_token));
-        });
-      },
-      error_callback: (err) => {
-        settle(() => {
-          if (err?.type === "popup_failed_to_open" || err?.type === "popup_closed") {
-            redirectToGoogle(clientId, pendingAction); // navigates away; nothing after this runs
-            return;
-          }
-          reject(syncError("401", err?.type || "auth-failed"));
-        });
-      },
-    });
-    client.requestAccessToken({ prompt: "" });
-
-    timeoutId = setTimeout(() => {
-      settle(() => redirectToGoogle(clientId, pendingAction));
-    }, POPUP_CALLBACK_TIMEOUT_MS);
-  });
+  // The popup route failed outright, or silently hung (Safari/ITP).
+  // Redirect instead — this does not return.
+  await redirectToGoogle(clientId, pendingAction);
+  return null;
 }
 
-/** Call once at boot (fire-and-forget). If the page was just reached via
- * the redirect fallback, this pulls the token out of the URL fragment,
- * stores it, cleans the URL, and resumes whatever action was pending —
- * so the round-trip is invisible to the rest of the app. Resolves to null
- * when the page was reached normally (the overwhelmingly common case). */
+/** Call once at boot, BEFORE the router reads location.hash — an OAuth
+ * redirect comes back with its token in the same URL fragment the router
+ * uses to pick the initial tab, and the router's own history.replaceState
+ * would otherwise silently destroy the token before this ever runs.
+ * Resolves to null when the page was reached normally (the overwhelming
+ * majority of loads). */
 export async function checkRedirectReturn() {
-  if (!location.hash.includes("access_token=")) return null;
+  const raw = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
+  if (!raw.includes("access_token=") && !raw.includes("error=")) return null;
 
-  const params = new URLSearchParams(location.hash.slice(1));
-  const accessToken = params.get("access_token");
-  const expiresIn = params.get("expires_in");
-  const error = params.get("error");
-  history.replaceState(null, "", location.pathname + location.search);
-
+  const params = new URLSearchParams(raw);
+  const expectedState = await getMeta(AUTH_STATE_KEY, null);
   const pendingAction = await getMeta(PENDING_ACTION_KEY, null);
+  await deleteMeta(AUTH_STATE_KEY);
   await deleteMeta(PENDING_ACTION_KEY);
 
-  if (error || !accessToken) {
-    await logActivity("sync", "error", `redirect auth failed: ${error || "no token returned"}`);
+  // Strip the token out of the address bar before anything else — the
+  // router included — can read it, and before it can end up in history.
+  history.replaceState(null, "", location.pathname + location.search);
+
+  const error = params.get("error");
+  if (error) {
+    await logActivity("sync", "error", `redirect auth failed: ${error}`);
     return { outcome: "error" };
   }
-  await storeToken(accessToken, expiresIn);
+  if (!expectedState || params.get("state") !== expectedState) {
+    await logActivity("sync", "error", "redirect auth failed: state mismatch");
+    return { outcome: "error" };
+  }
+  const accessToken = params.get("access_token");
+  if (!accessToken) {
+    await logActivity("sync", "error", "redirect auth failed: no token returned");
+    return { outcome: "error" };
+  }
+  await storeToken(accessToken, params.get("expires_in"));
 
   if (pendingAction === "backup") return backupNow();
   if (pendingAction === "sync") return syncNow();
@@ -411,6 +437,10 @@ export async function syncNow() {
   }
   try {
     const token = await requestToken({ pendingAction: "sync" });
+    if (!token) {
+      await logActivity("sync", "skipped", "redirecting to sign in");
+      return { outcome: "skipped", reason: "redirecting" };
+    }
     const { rootId } = await ensureAppFolders(token);
 
     // 1. download remote, merge against what we have now.
@@ -468,6 +498,10 @@ export async function backupNow() {
   }
   try {
     const token = await requestToken({ pendingAction: "backup" });
+    if (!token) {
+      await logActivity("backup", "skipped", "redirecting to sign in");
+      return { outcome: "skipped", reason: "redirecting" };
+    }
     const { backupsId } = await ensureAppFolders(token);
     const items = await getAllItems();
     const filename = `backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
@@ -488,6 +522,7 @@ export async function backupNow() {
 
 export async function listBackups() {
   const token = await requestToken({ pendingAction: "backup" });
+  if (!token) return []; // a redirect is underway; the view will reload shortly
   const { backupsId } = await ensureAppFolders(token);
   const q = encodeURIComponent(`'${backupsId}' in parents and trashed = false`);
   const res = await driveFetch(`${DRIVE_FILES}?q=${q}&spaces=drive&fields=files(id,name,createdTime)&orderBy=createdTime desc`, token);
@@ -501,6 +536,10 @@ export async function listBackups() {
 export async function restoreBackup(fileId, mode) {
   try {
     const token = await requestToken({ pendingAction: "sync" });
+    if (!token) {
+      await logActivity("restore", "skipped", "redirecting to sign in");
+      return { outcome: "skipped", reason: "redirecting" };
+    }
     const res = await driveFetch(`${DRIVE_FILES}/${fileId}?alt=media`, token);
     const text = await res.text();
     const parsed = parseItemsPayload(text);

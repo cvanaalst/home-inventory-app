@@ -257,6 +257,21 @@ async function boot() {
   wireSettings();
   initViews();
 
+  registerServiceWorker();
+  requestPersistentStorage(); // fire-and-forget, per BLUEPRINT.md §8.13
+
+  // An OAuth redirect returns with its token in the URL fragment — the
+  // same place the router below reads its initial tab from. This MUST run
+  // (and be awaited) before that router code touches location.hash: its
+  // own history.replaceState would otherwise silently overwrite the
+  // fragment and destroy the token before checkRedirectReturn ever saw it
+  // — a real bug this project hit in testing (§7).
+  try {
+    await checkRedirectReturn();
+  } catch (err) {
+    console.error("OAuth redirect could not be processed:", err);
+  }
+
   const initial = TAB_TARGETS.includes(location.hash.slice(1))
     ? location.hash.slice(1)
     : DEFAULT_TAB;
@@ -264,10 +279,6 @@ async function boot() {
   setActiveTab(initial);
   history.replaceState({ tab: initial }, "", `#${initial}`);
   viewControllers[initial]?.show({});
-
-  registerServiceWorker();
-  requestPersistentStorage(); // fire-and-forget, per BLUEPRINT.md §8.13
-  checkRedirectReturn(); // resumes a sync/backup that fell back to the OAuth redirect flow (§7)
 
   // Correct language/theme/density once the stored preference has loaded.
   await loadPrefs();

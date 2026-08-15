@@ -101,10 +101,11 @@ export function initSettingsView() {
     const result = await syncNow();
     syncNowBtn.textContent = t("settings.sync.now");
     await refreshSyncStatus();
-    toast(
-      result.outcome === "success" ? t("settings.sync.syncSuccess") : t("settings.sync.syncError"),
-      result.outcome === "success" ? "info" : "error",
-    );
+    // "skipped" (offline, or a redirect to Google is underway) shows no
+    // toast — a redirect navigates the page away almost immediately, so
+    // there'd be nothing left to see it.
+    if (result.outcome === "success") toast(t("settings.sync.syncSuccess"), "info");
+    else if (result.outcome === "error") toast(t("settings.sync.syncError"), "error");
   });
 
   backupBtn.addEventListener("click", async () => {
@@ -113,10 +114,8 @@ export function initSettingsView() {
     const result = await backupNow();
     backupBtn.textContent = t("settings.sync.backupNow");
     await refreshSyncStatus();
-    toast(
-      result.outcome === "success" ? t("settings.sync.backupSuccess") : t("settings.sync.backupError"),
-      result.outcome === "success" ? "info" : "error",
-    );
+    if (result.outcome === "success") toast(t("settings.sync.backupSuccess"), "info");
+    else if (result.outcome === "error") toast(t("settings.sync.backupError"), "error");
   });
 
   async function doRestore(backup, mode) {
