@@ -2,7 +2,7 @@
 // and wired directly in app.js (needed at boot, before any view exists);
 // everything here is view-local and needs fresh data on every open.
 
-import { getStorageEstimate, requestPersistentStorage } from "./db.js";
+import { getStorageEstimate, requestPersistentStorage, getMeta, setMeta } from "./db.js";
 import { t } from "./i18n.js";
 import { toast, confirmDialog, escapeHtml } from "./ui.js";
 import {
@@ -25,6 +25,57 @@ function formatBytes(bytes) {
     unit++;
   } while (value >= 1024 && unit < units.length - 1);
   return `${value.toFixed(value >= 10 || unit < 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+// ---------- install hint (§6 polish) ----------
+
+/** The deferred install prompt. Registered at MODULE scope, not inside
+ * initSettingsView — the event fires early, often before Settings has ever
+ * been opened, and can only be replayed later if it was preventDefault()ed
+ * the moment it arrived. Miss it and the browser's own prompt is gone for
+ * good, with no way to get it back short of reinstalling. */
+let installPrompt = null;
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    installPrompt = event;
+    paintInstall();
+  });
+  window.addEventListener("appinstalled", () => {
+    installPrompt = null;
+    const panel = document.getElementById("install-panel");
+    if (panel) panel.hidden = true;
+  });
+}
+
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+/** iOS never fires beforeinstallprompt, so it needs written instructions
+ * instead of a button that would otherwise do nothing. */
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+const INSTALL_DISMISSED_KEY = "installDismissed";
+
+async function paintInstall() {
+  const panel = document.getElementById("install-panel");
+  if (!panel) return;
+
+  const dismissed = await getMeta(INSTALL_DISMISSED_KEY, false);
+  const canPrompt = !!installPrompt;
+  const ios = isIOS();
+
+  // Show it only when it can actually lead somewhere: not already
+  // installed, not previously waved away, and either promptable or iOS
+  // (where the user has to do it by hand via the Share sheet).
+  panel.hidden = isStandalone() || dismissed || (!canPrompt && !ios);
+  if (panel.hidden) return;
+
+  document.getElementById("install-hint").textContent = t(canPrompt ? "install.hint" : "install.hint.ios");
+  document.getElementById("install-btn").hidden = !canPrompt;
 }
 
 export function initSettingsView() {
@@ -178,9 +229,30 @@ export function initSettingsView() {
     toast(t("settings.sync.disconnected"), "info");
   });
 
+  // ---------- install hint ----------
+
+  const installBtn = document.getElementById("install-btn");
+  const installDismissBtn = document.getElementById("install-dismiss-btn");
+
+  installBtn.addEventListener("click", async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    // A prompt can only be used once; a declined one must never be replayed.
+    installPrompt = null;
+    if (outcome === "accepted") toast(t("install.done"), "info");
+    paintInstall();
+  });
+
+  installDismissBtn.addEventListener("click", async () => {
+    await setMeta(INSTALL_DISMISSED_KEY, true);
+    paintInstall();
+  });
+
   async function show() {
     await refreshStorageInfo();
     await refreshSyncStatus();
+    await paintInstall();
   }
 
   return { show };

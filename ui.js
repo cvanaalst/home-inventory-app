@@ -211,6 +211,64 @@ export function attachSwipeActions(rowEl, { onSwipeLeft, onSwipeRight, threshold
 }
 
 // ────────────────────────────────────────────────────────────────────────
+// skeleton loader — delayed placeholder rows for a view's first render
+// (§6 polish). Delayed on purpose: an IndexedDB read finishes in a few
+// milliseconds, so showing this immediately would flash it on every
+// render and read as jank rather than progress — it appears only if the
+// wait is long enough to have actually been noticed.
+// ────────────────────────────────────────────────────────────────────────
+
+const SKELETON_DELAY_MS = 180;
+
+/** `skeletonGate(hostEl)` returns `{ begin(), end(seq) }` for a view to
+ * wrap each async render with:
+ *
+ *   const seq = skeleton.begin();
+ *   try { ...load + paint... } finally { skeleton.end(seq); }
+ *
+ * Only the FIRST render ever shows the skeleton (a returning visit to an
+ * already-warm view shouldn't flash one), and only the newest in-flight
+ * render may show or hide it — renders overlap (typing in a search box
+ * stacks new ones on top of old), and without the sequence number a timer
+ * left behind by an abandoned render would pop the skeleton back up over
+ * a list that has already been painted, with nothing left to take it
+ * down again. */
+export function skeletonGate(hostEl, rowCount = 5) {
+  let hasRenderedOnce = false;
+  let renderSeq = 0;
+
+  function show() {
+    if (!hostEl.childElementCount) {
+      hostEl.innerHTML = Array.from({ length: rowCount })
+        .map(
+          () =>
+            '<div class="row-card skeleton-row"><span class="row-main">' +
+            '<span class="skeleton-line skeleton-line--title"></span>' +
+            '<span class="skeleton-line skeleton-line--meta"></span></span></div>',
+        )
+        .join("");
+    }
+    hostEl.hidden = false;
+  }
+
+  return {
+    begin() {
+      const seq = ++renderSeq;
+      if (!hasRenderedOnce) {
+        setTimeout(() => {
+          if (seq === renderSeq) show();
+        }, SKELETON_DELAY_MS);
+      }
+      return seq;
+    },
+    end(seq) {
+      hasRenderedOnce = true;
+      if (seq === renderSeq) hostEl.hidden = true;
+    },
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────
 // shared widgets / formatters
 // ────────────────────────────────────────────────────────────────────────
 

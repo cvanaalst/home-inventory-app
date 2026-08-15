@@ -118,6 +118,15 @@
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+  /* app.js already gates document.startViewTransition() itself behind this
+     same media query, so these never actually run — kept as a defense-in-
+     depth backstop, since the ::view-transition-* tree sits outside the
+     normal DOM and a bare `*` selector above does not reach it. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }
 
 /* ============================================================
@@ -1230,6 +1239,50 @@ textarea {
 .synclog-when {
   font-size: 12px;
   color: var(--text-tertiary);
+}
+
+/* ============================================================
+   Skeleton loader (§6 polish) — reuses .row-card's own box so a real
+   row swaps in at the same height, with no layout shift.
+   ============================================================ */
+
+.skeleton-row {
+  pointer-events: none;
+}
+
+.skeleton-line {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--tag-bg) 25%, var(--surface-raised) 37%, var(--tag-bg) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+.skeleton-line--title {
+  width: 55%;
+  height: 14px;
+}
+
+.skeleton-line--meta {
+  width: 30%;
+  height: 11px;
+  margin-top: 8px;
+}
+
+@keyframes skeleton-sweep {
+  from {
+    background-position: 100% 50%;
+  }
+  to {
+    background-position: 0 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line {
+    animation: none;
+    background: var(--tag-bg);
+  }
 }
 
 /* ============================================================

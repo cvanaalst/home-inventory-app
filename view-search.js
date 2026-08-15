@@ -3,7 +3,7 @@
 // ("no photo") container creation.
 
 import { queryItems, getMeta, setMeta, putItem, makeRecord, nextCode, locationPath } from "./db.js";
-import { populateLocationSelect, escapeHtml, statusBadgeClass } from "./ui.js";
+import { populateLocationSelect, escapeHtml, statusBadgeClass, skeletonGate } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 
 const DEBOUNCE_MS = 250;
@@ -25,6 +25,7 @@ export function initSearchView({ onOpenContainer }) {
   const browseLabel = document.getElementById("search-browse-label");
   const browseList = document.getElementById("search-container-list");
   const browseEmpty = document.getElementById("search-browse-empty");
+  const browseSkeleton = skeletonGate(document.getElementById("search-skeleton"));
 
   let locations = [];
   let debounceTimer = null;
@@ -50,23 +51,34 @@ export function initSearchView({ onOpenContainer }) {
   // ---------- browse mode ----------
 
   async function renderBrowse() {
-    const [{ results: containers }, { results: items }] = await Promise.all([
-      queryItems({ type: "container", sortBy: "code", sortDir: "asc" }),
-      queryItems({ type: "item" }),
-    ]);
-    const locById = new Map(locations.map((l) => [l.id, l]));
-    const itemCounts = new Map();
-    for (const it of items) {
-      for (const id of it.linkedIds || []) itemCounts.set(id, (itemCounts.get(id) || 0) + 1);
+    const seq = browseSkeleton.begin();
+    try {
+      const [{ results: containers }, { results: items }] = await Promise.all([
+        queryItems({ type: "container", sortBy: "code", sortDir: "asc" }),
+        queryItems({ type: "item" }),
+      ]);
+      const locById = new Map(locations.map((l) => [l.id, l]));
+      const itemCounts = new Map();
+      for (const it of items) {
+        for (const id of it.linkedIds || []) itemCounts.set(id, (itemCounts.get(id) || 0) + 1);
+      }
+
+      const filterId = locationFilter.value;
+      const filtered = filterId ? containers.filter((c) => (c.linkedIds || []).includes(filterId)) : containers;
+
+      browseLabel.textContent = filterId ? t("search.browseAt", { location: locationPath(locById.get(filterId)) }) : t("search.browseAll");
+      browseEmpty.hidden = filtered.length > 0;
+      // Filter-aware: "no containers at all" reads very differently from
+      // "none at this particular location" — the latter would otherwise
+      // wrongly imply the whole inventory is empty when it isn't.
+      browseEmpty.textContent = filterId
+        ? t("search.noContainersAt", { location: locationPath(locById.get(filterId)) })
+        : t("search.noContainers");
+      browseList.innerHTML = filtered.map((c) => containerRowHtml(c, locById.get((c.linkedIds || [])[0]), itemCounts.get(c.id) || 0)).join("");
+      wireContainerRows(browseList);
+    } finally {
+      browseSkeleton.end(seq);
     }
-
-    const filterId = locationFilter.value;
-    const filtered = filterId ? containers.filter((c) => (c.linkedIds || []).includes(filterId)) : containers;
-
-    browseLabel.textContent = filterId ? t("search.browseAt", { location: locationPath(locById.get(filterId)) }) : t("search.browseAll");
-    browseEmpty.hidden = filtered.length > 0;
-    browseList.innerHTML = filtered.map((c) => containerRowHtml(c, locById.get((c.linkedIds || [])[0]), itemCounts.get(c.id) || 0)).join("");
-    wireContainerRows(browseList);
   }
 
   function refreshLocationFilter() {

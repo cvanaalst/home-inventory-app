@@ -7,7 +7,7 @@ import { state } from "./state.js";
 import { setLang, applyTranslations, t } from "./i18n.js";
 import { renderIcons } from "./icons.js";
 import { VERSION } from "./version.js";
-import { getMeta, setMeta, requestPersistentStorage } from "./db.js";
+import { getMeta, setMeta, requestPersistentStorage, getAllItems } from "./db.js";
 import { initSearchView } from "./view-search.js";
 import { initItemsView } from "./view-items.js";
 import { initLocationsView } from "./view-locations.js";
@@ -138,6 +138,30 @@ function announce(message) {
   });
 }
 
+// ---------- app badge (§8.16 polish) ----------
+//
+// This app has no due-reminder concept, so the badge instead counts what's
+// actually left in an unfinished state: containers not yet marked
+// confirmed (every new container starts as "captured" — see view-search.js)
+// plus any draft items. Called from every router entry point below rather
+// than from one central "data changed" funnel — this app doesn't have one —
+// so it stays roughly fresh without every view needing to know about it.
+async function updateAppBadge() {
+  if (!navigator.setAppBadge) return;
+  try {
+    const items = await getAllItems();
+    const pending = items.filter(
+      (r) =>
+        !r.deletedAt &&
+        ((r.type === "container" && r.status !== "confirmed") || (r.type === "item" && r.state === "draft")),
+    ).length;
+    if (pending > 0) await navigator.setAppBadge(pending);
+    else await navigator.clearAppBadge();
+  } catch {
+    // Unsupported, or the app isn't installed — not worth reporting.
+  }
+}
+
 // ---------- router ----------
 //
 // Each view module exports init...View({ ...callbacks }) which wires its
@@ -161,40 +185,71 @@ function setActiveTab(id) {
   });
 }
 
+/** Runs `mutate` (which may be async) as a View Transition when the browser
+ * supports it and the user hasn't asked for reduced motion, else runs it
+ * plain. Re-checks the media query on every call rather than caching it, so
+ * a mid-session OS setting change is picked up on the very next navigation. */
+function runTransition(mutate) {
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (document.startViewTransition && !reduced) {
+    const transition = document.startViewTransition(mutate);
+    // Starting a transition while one is still running ABORTS the old one,
+    // and every one of its promises then rejects. Unhandled, that surfaces
+    // as "InvalidStateError: Transition was aborted" on any quick double
+    // navigation. The abort itself is harmless — the swap still ran — so
+    // the rejections are swallowed deliberately rather than reported.
+    const ignore = () => {};
+    transition.finished.catch(ignore);
+    transition.ready.catch(ignore);
+    transition.updateCallbackDone.catch(ignore);
+  } else {
+    mutate();
+  }
+}
+
 function navigateTab(id, { replace = false } = {}) {
   if (!TAB_TARGETS.includes(id)) return;
-  showView(id);
-  setActiveTab(id);
   const entry = { tab: id };
   if (replace) history.replaceState(entry, "", `#${id}`);
   else history.pushState(entry, "", `#${id}`);
-  document.getElementById("view-container").scrollTop = 0;
-  viewControllers[id]?.show({});
+  runTransition(async () => {
+    showView(id);
+    setActiveTab(id);
+    document.getElementById("view-container").scrollTop = 0;
+    await viewControllers[id]?.show({});
+  });
+  updateAppBadge();
 }
 
 function pushView(id, params = {}) {
   if (!PUSH_TARGETS.includes(id)) return;
-  showView(id);
   history.pushState({ view: id, fromTab: currentTab, params }, "", `#${id}`);
-  document.getElementById("view-container").scrollTop = 0;
-  viewControllers[id]?.show(params);
+  runTransition(async () => {
+    showView(id);
+    document.getElementById("view-container").scrollTop = 0;
+    await viewControllers[id]?.show(params);
+  });
+  updateAppBadge();
 }
 
 function onPopState(event) {
   const s = event.state;
-  if (s?.view) {
-    showView(s.view);
-    viewControllers[s.view]?.show(s.params || {});
-  } else if (s?.tab) {
-    showView(s.tab);
-    setActiveTab(s.tab);
-    viewControllers[s.tab]?.show({});
-  } else {
-    // No state (e.g. first load without a hash) — land on the default tab.
-    showView(DEFAULT_TAB);
-    setActiveTab(DEFAULT_TAB);
-    viewControllers[DEFAULT_TAB]?.show({});
-  }
+  runTransition(async () => {
+    if (s?.view) {
+      showView(s.view);
+      await viewControllers[s.view]?.show(s.params || {});
+    } else if (s?.tab) {
+      showView(s.tab);
+      setActiveTab(s.tab);
+      await viewControllers[s.tab]?.show({});
+    } else {
+      // No state (e.g. first load without a hash) — land on the default tab.
+      showView(DEFAULT_TAB);
+      setActiveTab(DEFAULT_TAB);
+      await viewControllers[DEFAULT_TAB]?.show({});
+    }
+  });
+  updateAppBadge();
 }
 
 function wireNav() {
@@ -344,6 +399,7 @@ async function boot() {
   setActiveTab(initial);
   history.replaceState({ tab: initial }, "", `#${initial}`);
   viewControllers[initial]?.show({});
+  updateAppBadge();
 
   // Correct language/theme/density once the stored preference has loaded.
   await loadPrefs();

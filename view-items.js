@@ -3,7 +3,7 @@
 // engine is shared, the row rendering and singleton DOM state are not.
 
 import { queryItems, locationPath } from "./db.js";
-import { escapeHtml } from "./ui.js";
+import { escapeHtml, skeletonGate } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 
 const DEBOUNCE_MS = 250;
@@ -16,6 +16,7 @@ export function initItemsView({ onOpenContainer }) {
   const countEl = document.getElementById("items-count");
   const listEl = document.getElementById("items-list");
   const emptyEl = document.getElementById("items-empty");
+  const skeleton = skeletonGate(document.getElementById("items-skeleton"));
 
   let debounceTimer = null;
   let containersById = new Map();
@@ -48,33 +49,38 @@ export function initItemsView({ onOpenContainer }) {
   }
 
   async function refresh() {
-    const [{ results: allItems }, { results: containers }, { results: locations }] = await Promise.all([
-      queryItems({ type: "item" }),
-      queryItems({ type: "container" }),
-      queryItems({ type: "location" }),
-    ]);
-    containersById = new Map(containers.map((c) => [c.id, c]));
-    locationsById = new Map(locations.map((l) => [l.id, l]));
-    refreshCategoryOptions(allItems);
+    const seq = skeleton.begin();
+    try {
+      const [{ results: allItems }, { results: containers }, { results: locations }] = await Promise.all([
+        queryItems({ type: "item" }),
+        queryItems({ type: "container" }),
+        queryItems({ type: "location" }),
+      ]);
+      containersById = new Map(containers.map((c) => [c.id, c]));
+      locationsById = new Map(locations.map((l) => [l.id, l]));
+      refreshCategoryOptions(allItems);
 
-    const [sortBy, sortDir] = sortSelect.value.split("-");
-    const { results, total } = await queryItems({
-      type: "item",
-      search: searchInput.value.trim(),
-      category: categorySelect.value || undefined,
-      itemState: stateSelect.value || undefined,
-      sortBy,
-      sortDir,
-    });
+      const [sortBy, sortDir] = sortSelect.value.split("-");
+      const { results, total } = await queryItems({
+        type: "item",
+        search: searchInput.value.trim(),
+        category: categorySelect.value || undefined,
+        itemState: stateSelect.value || undefined,
+        sortBy,
+        sortDir,
+      });
 
-    countEl.textContent = tCount("items.count", total);
-    emptyEl.hidden = results.length > 0;
-    listEl.innerHTML = results.map(rowHtml).join("");
-    listEl.querySelectorAll("[data-container-id]").forEach((el) => {
-      const id = el.getAttribute("data-container-id");
-      if (id) el.addEventListener("click", () => onOpenContainer(id));
-      else el.disabled = true;
-    });
+      countEl.textContent = tCount("items.count", total);
+      emptyEl.hidden = results.length > 0;
+      listEl.innerHTML = results.map(rowHtml).join("");
+      listEl.querySelectorAll("[data-container-id]").forEach((el) => {
+        const id = el.getAttribute("data-container-id");
+        if (id) el.addEventListener("click", () => onOpenContainer(id));
+        else el.disabled = true;
+      });
+    } finally {
+      skeleton.end(seq);
+    }
   }
 
   searchInput.addEventListener("input", () => {

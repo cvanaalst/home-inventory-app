@@ -76,6 +76,7 @@ const dict = {
     "search.resultsLocations": "Locaties",
     "search.noResults": "Geen resultaten",
     "search.noContainers": "Nog geen containers.",
+    "search.noContainersAt": "Geen containers bij {location}.",
     "search.codePrefix": "Codeprefix",
     "search.codeRequired": "Code is verplicht",
     "search.codeExists": "{code} bestaat al",
@@ -214,6 +215,13 @@ const dict = {
     "synclog.outcome.skipped": "overgeslagen",
     "synclog.empty": "Nog geen synclogboek.",
     "synclog.clear": "Logboek wissen",
+
+    "install.title": "Installeren",
+    "install.hint": "Zet Inventory op je beginscherm: dan opent hij als een gewone app, zonder adresbalk, en werkt hij ook zonder internet.",
+    "install.hint.ios": "Tik onderaan op Delen en kies \"Zet op beginscherm\". Daarna opent Inventory als een gewone app, ook zonder internet.",
+    "install.action": "Installeren",
+    "install.dismiss": "Niet meer tonen",
+    "install.done": "Inventory is geïnstalleerd",
   },
   en: {
     "app.name": "Inventory",
@@ -287,6 +295,7 @@ const dict = {
     "search.resultsLocations": "Locations",
     "search.noResults": "No matches",
     "search.noContainers": "No containers yet.",
+    "search.noContainersAt": "No containers at {location}.",
     "search.codePrefix": "Code prefix",
     "search.codeRequired": "Code is required",
     "search.codeExists": "{code} already exists",
@@ -425,6 +434,13 @@ const dict = {
     "synclog.outcome.skipped": "skipped",
     "synclog.empty": "No sync log yet.",
     "synclog.clear": "Clear log",
+
+    "install.title": "Install",
+    "install.hint": "Add Inventory to your home screen: it opens like a regular app, with no address bar, and works even without internet.",
+    "install.hint.ios": "Tap Share at the bottom and choose \"Add to Home Screen\". Inventory will then open like a regular app, even offline.",
+    "install.action": "Install",
+    "install.dismiss": "Don't show again",
+    "install.done": "Inventory is installed",
   },
 };
 

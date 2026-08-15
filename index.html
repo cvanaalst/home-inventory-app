@@ -65,8 +65,9 @@
           <p class="error-text" id="new-container-error" hidden></p>
         </div>
         <div class="section-label" id="search-browse-label"></div>
+        <div class="list" id="search-skeleton" hidden></div>
         <div class="list" id="search-container-list"></div>
-        <p class="empty-state" id="search-browse-empty" hidden data-i18n="search.noContainers"></p>
+        <p class="empty-state" id="search-browse-empty" hidden></p>
       </div>
     </section>
 
@@ -89,6 +90,7 @@
           <option value="quantity-desc" data-i18n="sort.quantityDesc"></option>
         </select>
       </div>
+      <div class="list" id="items-skeleton" hidden></div>
       <div class="list" id="items-list"></div>
       <p class="empty-state" id="items-empty" hidden data-i18n="items.empty"></p>
     </section>
@@ -320,6 +322,14 @@
         <h1 data-i18n="view.settings.title"></h1>
       </header>
       <div class="view-body">
+        <section class="settings-section" id="install-panel" hidden>
+          <h2 data-i18n="install.title"></h2>
+          <p class="muted" id="install-hint"></p>
+          <div class="row" style="margin-top: 10px">
+            <button class="btn btn-primary grow" id="install-btn" data-i18n="install.action" hidden></button>
+            <button class="btn" id="install-dismiss-btn" data-i18n="install.dismiss"></button>
+          </div>
+        </section>
         <section class="settings-section">
           <h2 data-i18n="settings.appearance"></h2>
           <div class="field-label" data-i18n="settings.theme"></div>
