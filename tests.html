@@ -594,6 +594,18 @@ section("buildLabelSheetHtml");
   const html = report.buildLabelSheetHtml({ containers: deleted, locations: [], t });
   assertTrue(!html.includes("GONE-001"), "a soft-deleted container never gets a label printed, even if a stale selection somehow included it");
 }
+{
+  const t = (key) => key;
+  const containers = [{ id: "c1", type: "container", code: "BOX-001", linkedIds: [] }];
+  const defaultHtml = report.buildLabelSheetHtml({ containers, locations: [], t });
+  assertTrue(!defaultHtml.includes("fmt-"), "no format argument keeps the original generic auto-fill layout — no fmt-* class at all");
+  const genericHtml = report.buildLabelSheetHtml({ containers, locations: [], t, format: "generic" });
+  assertTrue(!genericHtml.includes("fmt-"), "an explicit format:\"generic\" is the same as omitting it — still no fmt-* class");
+  const l7160Html = report.buildLabelSheetHtml({ containers, locations: [], t, format: "l7160" });
+  assertTrue(l7160Html.includes('class="label-sheet fmt-l7160"'), "a real sheet format adds its fmt-<id> class so style.css can size the grid to that sheet's exact label dimensions");
+  assertEqual(report.LABEL_FORMATS.find((f) => f.id === "l7160").page, "a4", "the L7160 registry entry is flagged for an A4 print page, not Letter — printing it on the wrong page size would misalign every label, not just look odd");
+  assertEqual(report.LABEL_FORMATS.find((f) => f.id === "avery5160").page, "letter", "the US Avery formats are flagged for Letter, not A4");
+}
 
 section("formatHistoryValue");
 {

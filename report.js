@@ -273,12 +273,38 @@ export function buildPrintReportHtml({ containers, items, locations, includeNote
   `;
 }
 
+/** Popular pre-cut label sheet formats, alongside the original "generic"
+ * (plain paper, cut-your-own-line) layout. Each real format's exact
+ * label size/pitch/margins lives in style.css as a `.label-sheet.fmt-<id>`
+ * rule — this registry only carries what the UI/print-mechanics layer
+ * needs: which page size the sheet is cut for (view-labels.js sets the
+ * @page rule accordingly) and the per-sheet capacity, shown in the picker
+ * so a choice like "21/sheet" means something before you've printed it.
+ * Dimensions cross-checked against gLabels' own Avery template definitions
+ * (github.com/samlown/glabels, github.com/j-evins/glabels-qt) — the same
+ * numbers real label-printing software ships with — not eyeballed. */
+export const LABEL_FORMATS = [
+  { id: "generic", page: null, perSheet: null },
+  { id: "l7160", page: "a4", perSheet: 21 },
+  { id: "l7163", page: "a4", perSheet: 14 },
+  { id: "l7651", page: "a4", perSheet: 65 },
+  { id: "avery5160", page: "letter", perSheet: 30 },
+  { id: "avery5167", page: "letter", perSheet: 80 },
+];
+
 /** One small cut-out card per container — code, name, location path.
  * Deliberately no QR: a printed code that links back into the app opens in
  * Safari, not the installed PWA, on iOS (BLUEPRINT.md §13.3) — a link is
  * the wrong mechanism here, not just an omitted nice-to-have. `containers`
- * should already be scoped to whatever the caller wants printed. */
-export function buildLabelSheetHtml({ containers, locations, t }) {
+ * should already be scoped to whatever the caller wants printed.
+ *
+ * `format` picks a LABEL_FORMATS id; "generic" (the default) keeps the
+ * original auto-fill grid on plain paper. Anything else adds a
+ * `fmt-<id>` class that style.css sizes to that sheet's real label
+ * dimensions/pitch/margins — the dashed cut-line border is dropped for
+ * those, since the label boundary is a physical sticker edge there, not
+ * something to mark with ink. */
+export function buildLabelSheetHtml({ containers, locations, t, format = "generic" }) {
   const locationsById = new Map(locations.map((l) => [l.id, l]));
   const sorted = [...containers].filter((c) => !c.deletedAt).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: "base" }));
 
@@ -294,5 +320,6 @@ export function buildLabelSheetHtml({ containers, locations, t }) {
     })
     .join("");
 
-  return `<div class="label-sheet">${cards || `<p>${escapeHtml(t("report.print.empty"))}</p>`}</div>`;
+  const formatClass = format && format !== "generic" ? ` fmt-${format}` : "";
+  return `<div class="label-sheet${formatClass}">${cards || `<p>${escapeHtml(t("report.print.empty"))}</p>`}</div>`;
 }

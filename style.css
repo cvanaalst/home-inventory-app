@@ -1354,6 +1354,59 @@ textarea {
     color: #555;
     margin-top: 1mm;
   }
+
+  /* Real pre-cut sheets: exact label size/pitch/margins per format (see
+     LABEL_FORMATS in report.js for the source of these numbers). Pitch
+     minus label size gives the gap; every format here has zero vertical
+     gap (rows sit edge to edge), so row-gap is always 0 and grid-auto-rows
+     carries the label height directly. No dashed border — the sticker's
+     own edge is the cut line here, not something to print. */
+  .label-sheet[class*="fmt-"] .label-card {
+    border: none;
+    border-radius: 0;
+    padding: 1.5mm 2mm;
+    overflow: hidden;
+  }
+
+  .label-sheet.fmt-l7160 {
+    grid-template-columns: repeat(3, 63.5mm);
+    grid-auto-rows: 38.1mm;
+    column-gap: 2.5mm;
+    row-gap: 0;
+    padding: 15.5mm 0 0 7.5mm;
+  }
+
+  .label-sheet.fmt-l7163 {
+    grid-template-columns: repeat(2, 99.1mm);
+    grid-auto-rows: 38.1mm;
+    column-gap: 3.9mm;
+    row-gap: 0;
+    padding: 15.2mm 0 0 3.4mm;
+  }
+
+  .label-sheet.fmt-l7651 {
+    grid-template-columns: repeat(5, 38.1mm);
+    grid-auto-rows: 21.2mm;
+    column-gap: 2.5mm;
+    row-gap: 0;
+    padding: 10.9mm 0 0 4.7mm;
+  }
+
+  .label-sheet.fmt-avery5160 {
+    grid-template-columns: repeat(3, 66.68mm);
+    grid-auto-rows: 25.4mm;
+    column-gap: 3.18mm;
+    row-gap: 0;
+    padding: 12.7mm 0 0 4.76mm;
+  }
+
+  .label-sheet.fmt-avery5167 {
+    grid-template-columns: repeat(4, 44.45mm);
+    grid-auto-rows: 12.7mm;
+    column-gap: 7.94mm;
+    row-gap: 0;
+    padding: 12.7mm 0 0 7.14mm;
+  }
 }
 
 /* ============================================================
