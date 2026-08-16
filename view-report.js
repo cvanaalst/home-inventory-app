@@ -2,7 +2,7 @@
 // cloud, JSON/CSV export, printable overview. All computation is delegated
 // to the pure functions in report.js — this file only owns DOM + downloads.
 
-import { getAllItems } from "./db.js";
+import { getAllItems, getMedia } from "./db.js";
 import {
   computeStats,
   bucketItemsByWeek,
@@ -108,10 +108,22 @@ export function initReportView() {
     downloadBlob(`inventory-export-${dateStamp()}.csv`, buildCsvExport(allItems, containers, locations), "text/csv");
   });
 
-  els.printBtn.addEventListener("click", () => {
+  els.printBtn.addEventListener("click", async () => {
     const containers = allItems.filter((r) => r.type === "container");
     const locations = allItems.filter((r) => r.type === "location");
-    const html = buildPrintReportHtml({ containers, items: allItems, locations, includeNotes: false, t });
+    // Object URLs deliberately outlive this handler unrevoked — a one-shot
+    // print action over a handful of thumbnails, not a hot loop, so the
+    // usual revoke-on-rerender discipline (view-search.js, view-detail.js)
+    // isn't worth the complexity of timing it around window.print()'s
+    // non-deterministic-across-browsers return.
+    const photoUrls = new Map();
+    for (const c of containers) {
+      const first = (c.attachments || [])[0];
+      if (!first) continue;
+      const rec = await getMedia(first.mediaId);
+      if (rec?.blob) photoUrls.set(c.id, URL.createObjectURL(rec.blob));
+    }
+    const html = buildPrintReportHtml({ containers, items: allItems, locations, includeNotes: false, t, photoUrls });
     document.getElementById("print-root").innerHTML = html;
     window.print();
   });

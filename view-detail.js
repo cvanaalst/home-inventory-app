@@ -561,8 +561,14 @@ export function initDetailView({ onDeleted }) {
     await renderItems();
   });
 
-  printBtn.addEventListener("click", () => {
-    const html = buildPrintReportHtml({ containers: [container], items, locations, includeNotes: true, t });
+  printBtn.addEventListener("click", async () => {
+    const photoUrls = new Map();
+    const first = (container.attachments || [])[0];
+    if (first) {
+      const rec = await getMedia(first.mediaId);
+      if (rec?.blob) photoUrls.set(container.id, URL.createObjectURL(rec.blob));
+    }
+    const html = buildPrintReportHtml({ containers: [container], items, locations, includeNotes: true, t, photoUrls });
     document.getElementById("print-root").innerHTML = html;
     window.print();
   });

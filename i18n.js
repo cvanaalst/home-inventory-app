@@ -250,6 +250,8 @@ const dict = {
     "history.field.state": "Status",
     "history.field.source": "Bron",
 
+    "settings.advancedToggle": "Geavanceerd",
+
     "settings.sync.title": "Synchroniseren",
     "settings.sync.clientId": "OAuth-client-ID",
     "settings.sync.registerValues": "Waarden voor Google Cloud Console",
@@ -563,6 +565,8 @@ const dict = {
     "history.field.category": "Category",
     "history.field.state": "Status",
     "history.field.source": "Source",
+
+    "settings.advancedToggle": "Advanced",
 
     "settings.sync.title": "Sync",
     "settings.sync.clientId": "OAuth client ID",

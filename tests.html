@@ -544,6 +544,22 @@ section("buildPrintReportHtml");
   const resistorRow = rows.find((r) => r.includes("Resistor"));
   assertTrue(!usbCableRow.includes("print-item-fields"), "an item with no specs gets no specs line — the row isn't padded with an empty div just because a sibling item has one");
   assertTrue(resistorRow.includes("Tolerance: 5%"), "the specs line sits inside its own item's row, not detached elsewhere in the table");
+  assertTrue(!html.includes("print-container-thumb"), "no photoUrls map means no thumbnail markup at all — omitted, not an empty/broken <img>");
+}
+{
+  const t = (key) => key;
+  const locations = [{ id: "l1", type: "location", room: "Office", linkedIds: [] }];
+  const containers = [
+    { id: "c1", type: "container", code: "BOX-001", title: "Cables box", linkedIds: ["l1"] },
+    { id: "c2", type: "container", code: "BOX-002", title: "No photo box", linkedIds: ["l1"] },
+  ];
+  const photoUrls = new Map([["c1", "blob:fake-url"]]);
+  const html = report.buildPrintReportHtml({ containers, items: [], locations, includeNotes: false, t, photoUrls });
+  const sections = html.split("print-container-head");
+  const box1 = sections.find((s) => s.includes("BOX-001"));
+  const box2 = sections.find((s) => s.includes("BOX-002"));
+  assertTrue(box1.includes('src="blob:fake-url"'), "a container with a photoUrls entry gets its thumbnail embedded in the print output");
+  assertTrue(!box2.includes("print-container-thumb"), "a container with no entry in photoUrls prints without a thumbnail rather than a broken image");
 }
 {
   const t = (key) => key;

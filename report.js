@@ -202,8 +202,11 @@ export function buildCsvExport(items, containers, locations) {
 
 /** Overview report grouped by location path, alphabetical. `containers`
  * should already be scoped to whatever the caller wants printed — the
- * single-container print button passes an array of one. */
-export function buildPrintReportHtml({ containers, items, locations, includeNotes, t }) {
+ * single-container print button passes an array of one. `photoUrls`
+ * (containerId -> displayable img src) is precomputed by the caller —
+ * this stays a synchronous, DOM-free function, so it can't itself fetch a
+ * media blob and turn it into an object URL. */
+export function buildPrintReportHtml({ containers, items, locations, includeNotes, t, photoUrls = new Map() }) {
   const locationsById = new Map(locations.map((l) => [l.id, l]));
   const itemsByContainer = new Map();
   for (const item of items) {
@@ -246,10 +249,13 @@ export function buildPrintReportHtml({ containers, items, locations, includeNote
       : `<tr><td colspan="3" class="print-empty">${escapeHtml(t("report.print.noItems"))}</td></tr>`;
 
     const notes = includeNotes && c.comment ? `<div class="print-notes">${escapeHtml(c.comment)}</div>` : "";
+    const photoUrl = photoUrls.get(c.id);
+    const thumb = photoUrl ? `<img src="${escapeHtml(photoUrl)}" class="print-container-thumb" alt="" />` : "";
 
     sections.push(`
       <div class="print-container">
         <div class="print-container-head">
+          ${thumb}
           <span class="print-code">${escapeHtml(c.code)}</span>
           <span class="print-name">${escapeHtml(c.title)}</span>
           <span class="print-count">${containerItems.length}</span>

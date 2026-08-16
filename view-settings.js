@@ -205,6 +205,15 @@ export function initSettingsView() {
   const restoreListEl = document.getElementById("sync-restore-list");
   const restoreEmptyEl = document.getElementById("sync-restore-empty");
   const disconnectBtn = document.getElementById("sync-disconnect-btn");
+  const syncAdvancedToggleBtn = document.getElementById("sync-advanced-toggle-btn");
+  const syncAdvancedPanel = document.getElementById("sync-advanced-panel");
+
+  // Closed by default on every visit — the Client ID and registered
+  // origin/redirect are setup-once fields, not something to leave exposed
+  // next to the everyday Sync now / Backup now buttons.
+  syncAdvancedToggleBtn.addEventListener("click", () => {
+    syncAdvancedPanel.hidden = !syncAdvancedPanel.hidden;
+  });
 
   async function refreshSyncStatus() {
     const status = await getConnectionStatus();
@@ -319,6 +328,12 @@ export function initSettingsView() {
   const apiKeyInput = document.getElementById("ai-apikey-input");
   const apiKeySaveBtn = document.getElementById("ai-apikey-save-btn");
   const apiKeyStatusEl = document.getElementById("ai-apikey-status");
+  const aiAdvancedToggleBtn = document.getElementById("ai-advanced-toggle-btn");
+  const aiAdvancedPanel = document.getElementById("ai-advanced-panel");
+
+  aiAdvancedToggleBtn.addEventListener("click", () => {
+    aiAdvancedPanel.hidden = !aiAdvancedPanel.hidden;
+  });
 
   async function refreshApiKeyStatus() {
     if (document.activeElement !== apiKeyInput) apiKeyInput.value = await getApiKey();

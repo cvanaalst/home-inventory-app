@@ -1258,10 +1258,19 @@ textarea {
 
   .print-container-head {
     display: flex;
+    align-items: center;
     gap: 8px;
     font-size: 12px;
     font-weight: 700;
     margin-bottom: 2px;
+  }
+
+  .print-container-thumb {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border-radius: 2px;
+    flex-shrink: 0;
   }
 
   .print-code {

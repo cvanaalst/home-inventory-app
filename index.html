@@ -499,6 +499,41 @@
           </div>
         </section>
         <section class="settings-section">
+          <h2 data-i18n="settings.sync.title"></h2>
+          <p class="muted" id="sync-status"></p>
+
+          <button class="btn btn-block btn-primary" id="sync-now-btn" data-i18n="settings.sync.now" style="margin-top: 8px"></button>
+          <button class="btn btn-block" id="sync-backup-btn" data-i18n="settings.sync.backupNow" style="margin-top: 10px"></button>
+          <button class="btn btn-block" id="sync-restore-toggle-btn" data-i18n="settings.sync.showBackups" style="margin-top: 10px"></button>
+          <div id="sync-restore-list" class="list" hidden style="margin-top: 10px"></div>
+          <p class="empty-state" id="sync-restore-empty" hidden data-i18n="settings.sync.noBackups"></p>
+
+          <button class="btn btn-block" id="sync-disconnect-btn" data-i18n="settings.sync.disconnect" style="margin-top: 16px"></button>
+
+          <!-- Client ID + registered origin/redirect: setup-only fields that
+               are easy to brush against while scrolling to the everyday
+               actions above — tucked behind an explicit toggle so they're
+               never one careless tap away from being overwritten. -->
+          <button class="btn btn-block" id="sync-advanced-toggle-btn" data-i18n="settings.advancedToggle" style="margin-top: 16px"></button>
+          <div id="sync-advanced-panel" hidden style="margin-top: 10px">
+            <label class="field">
+              <span data-i18n="settings.sync.clientId"></span>
+              <input type="text" id="sync-clientid-input" autocapitalize="none" autocomplete="off" placeholder="123...abc.apps.googleusercontent.com" />
+            </label>
+            <button class="btn" id="sync-clientid-save-btn" data-i18n="action.save" style="margin-bottom: 14px"></button>
+
+            <div class="field-label" data-i18n="settings.sync.registerValues"></div>
+            <label class="field">
+              <span data-i18n="settings.sync.origin"></span>
+              <input type="text" id="sync-origin-value" readonly />
+            </label>
+            <label class="field" style="margin-bottom: 0">
+              <span data-i18n="settings.sync.redirectUri"></span>
+              <input type="text" id="sync-redirect-value" readonly />
+            </label>
+          </div>
+        </section>
+        <section class="settings-section">
           <h2 data-i18n="settings.storage.title"></h2>
           <p class="muted" id="settings-storage-usage"></p>
           <div class="storage-bar"><div class="storage-bar-fill" id="settings-storage-bar-fill"></div></div>
@@ -512,42 +547,20 @@
           <p class="empty-state" id="settings-history-empty" hidden data-i18n="settings.history.empty"></p>
         </section>
         <section class="settings-section">
-          <h2 data-i18n="settings.sync.title"></h2>
-          <label class="field">
-            <span data-i18n="settings.sync.clientId"></span>
-            <input type="text" id="sync-clientid-input" autocapitalize="none" autocomplete="off" placeholder="123...abc.apps.googleusercontent.com" />
-          </label>
-          <button class="btn" id="sync-clientid-save-btn" data-i18n="action.save" style="margin-bottom: 14px"></button>
-
-          <div class="field-label" data-i18n="settings.sync.registerValues"></div>
-          <label class="field">
-            <span data-i18n="settings.sync.origin"></span>
-            <input type="text" id="sync-origin-value" readonly />
-          </label>
-          <label class="field" style="margin-bottom: 0">
-            <span data-i18n="settings.sync.redirectUri"></span>
-            <input type="text" id="sync-redirect-value" readonly />
-          </label>
-
-          <p class="muted" id="sync-status" style="margin-top: 14px"></p>
-
-          <button class="btn btn-block btn-primary" id="sync-now-btn" data-i18n="settings.sync.now" style="margin-top: 8px"></button>
-          <button class="btn btn-block" id="sync-backup-btn" data-i18n="settings.sync.backupNow" style="margin-top: 10px"></button>
-          <button class="btn btn-block" id="sync-restore-toggle-btn" data-i18n="settings.sync.showBackups" style="margin-top: 10px"></button>
-          <div id="sync-restore-list" class="list" hidden style="margin-top: 10px"></div>
-          <p class="empty-state" id="sync-restore-empty" hidden data-i18n="settings.sync.noBackups"></p>
-
-          <button class="btn btn-block" id="sync-disconnect-btn" data-i18n="settings.sync.disconnect" style="margin-top: 16px"></button>
-        </section>
-        <section class="settings-section">
           <h2 data-i18n="settings.ai.title"></h2>
           <p class="muted" data-i18n="settings.ai.hint"></p>
-          <label class="field">
-            <span data-i18n="settings.ai.apiKey"></span>
-            <input type="password" id="ai-apikey-input" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="sk-ant-..." />
-          </label>
-          <button class="btn" id="ai-apikey-save-btn" data-i18n="action.save" style="margin-bottom: 8px"></button>
           <p class="muted" id="ai-apikey-status"></p>
+
+          <!-- The API key is the only thing this section has to protect —
+               same reasoning as Sync's toggle above. -->
+          <button class="btn btn-block" id="ai-advanced-toggle-btn" data-i18n="settings.advancedToggle" style="margin-top: 8px"></button>
+          <div id="ai-advanced-panel" hidden style="margin-top: 10px">
+            <label class="field">
+              <span data-i18n="settings.ai.apiKey"></span>
+              <input type="password" id="ai-apikey-input" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="sk-ant-..." />
+            </label>
+            <button class="btn" id="ai-apikey-save-btn" data-i18n="action.save" style="margin-bottom: 8px"></button>
+          </div>
         </section>
         <section class="settings-section">
           <h2 data-i18n="settings.danger.title"></h2>
