@@ -144,7 +144,12 @@
       <h1 data-i18n="view.review.title"></h1>
 
       <div class="section-label" data-i18n="review.queueLabel"></div>
+      <label class="row" id="review-show-identified-row" style="margin-bottom: 10px; align-items: center; gap: 8px">
+        <input type="checkbox" id="review-show-identified-toggle" style="width: auto" />
+        <span data-i18n="review.showIdentified"></span>
+      </label>
       <p class="empty-state" id="review-queue-empty" hidden data-i18n="review.queueEmpty"></p>
+      <p class="empty-state" id="review-queue-filtered-empty" hidden data-i18n="review.queueFilteredEmpty"></p>
       <p class="muted" id="review-no-api-key" hidden>
         <span data-i18n="review.noApiKey"></span>
         <button type="button" class="btn btn-sm" id="review-no-api-key-btn" data-i18n="review.openSettings"></button>

@@ -7,7 +7,7 @@
 // CACHE_VERSION must be bumped, or offline breaks silently for existing
 // installs (§13.13 / §19.5).
 
-const CACHE_VERSION = "v15";
+const CACHE_VERSION = "v16";
 const CACHE_NAME = `inventory-${CACHE_VERSION}`;
 
 const PRECACHE = [

@@ -15,6 +15,8 @@ import { planBatch } from "./aiplan.js";
 export function initReviewView({ onOpenContainer, onOpenSettings }) {
   const queueSkeleton = skeletonGate(document.getElementById("review-queue-skeleton"));
   const queueEmpty = document.getElementById("review-queue-empty");
+  const queueFilteredEmpty = document.getElementById("review-queue-filtered-empty");
+  const showIdentifiedToggle = document.getElementById("review-show-identified-toggle");
   const queueList = document.getElementById("review-queue-list");
   const noKeyHint = document.getElementById("review-no-api-key");
   const noKeyBtn = document.getElementById("review-no-api-key-btn");
@@ -43,6 +45,14 @@ export function initReviewView({ onOpenContainer, onOpenSettings }) {
     return items.filter((i) => i.source === "ai" && (i.linkedIds || []).includes(containerId)).length;
   }
 
+  // Default view: only containers never run through AI before — re-running
+  // an already-identified one takes an explicit opt-in via the toggle, so a
+  // batch click can't accidentally re-spend on containers already done.
+  function visibleQueueContainers() {
+    const withPhotos = containersWithPhotos();
+    return showIdentifiedToggle.checked ? withPhotos : withPhotos.filter((c) => aiItemCountFor(c.id) === 0);
+  }
+
   // ---------- queue (select containers, run AI) ----------
 
   function queueRowHtml(c) {
@@ -60,7 +70,7 @@ export function initReviewView({ onOpenContainer, onOpenSettings }) {
   }
 
   function refreshBatchBar() {
-    const chosen = containersWithPhotos().filter((c) => selected.has(c.id));
+    const chosen = visibleQueueContainers().filter((c) => selected.has(c.id));
     batchBar.hidden = chosen.length === 0;
     if (chosen.length === 0) return;
     const plan = planBatch(chosen.map((c) => ({ id: c.id, photos: attachmentPhotos(c) })));
@@ -73,9 +83,14 @@ export function initReviewView({ onOpenContainer, onOpenSettings }) {
     const seq = queueSkeleton.begin();
     try {
       const withPhotos = containersWithPhotos();
+      const visible = visibleQueueContainers();
       queueEmpty.hidden = withPhotos.length > 0;
-      queueList.innerHTML = withPhotos.map(queueRowHtml).join("");
-      for (const c of withPhotos) {
+      // Distinguish "nothing has photos yet" from "everything does, but the
+      // toggle is hiding it" — same idea as search.noContainersAt in
+      // view-search.js, since the two states need different guidance.
+      queueFilteredEmpty.hidden = withPhotos.length === 0 || visible.length > 0;
+      queueList.innerHTML = visible.map(queueRowHtml).join("");
+      for (const c of visible) {
         const row = queueList.querySelector(`[data-container-id="${c.id}"]`);
         row?.querySelector(".review-queue-check").addEventListener("change", (e) => {
           if (e.target.checked) selected.add(c.id);
@@ -91,6 +106,14 @@ export function initReviewView({ onOpenContainer, onOpenSettings }) {
   }
 
   noKeyBtn.addEventListener("click", () => onOpenSettings());
+
+  // Switching the filter changes which containers are even selectable, so
+  // any prior selection could reference a now-hidden row — drop it rather
+  // than run a batch on containers the user can no longer see or uncheck.
+  showIdentifiedToggle.addEventListener("change", () => {
+    selected.clear();
+    renderQueue();
+  });
 
   async function runContainer(container) {
     const attachments = container.attachments || [];
@@ -126,7 +149,7 @@ export function initReviewView({ onOpenContainer, onOpenSettings }) {
   }
 
   batchRunBtn.addEventListener("click", async () => {
-    const chosen = containersWithPhotos().filter((c) => selected.has(c.id));
+    const chosen = visibleQueueContainers().filter((c) => selected.has(c.id));
     if (chosen.length === 0) return;
     batchRunBtn.disabled = true;
     const original = batchRunBtn.textContent;

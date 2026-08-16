@@ -32,6 +32,8 @@ const dict = {
 
     "review.queueLabel": "Klaar voor AI-herkenning",
     "review.queueEmpty": "Geen containers met foto's die nog wachten.",
+    "review.showIdentified": "Ook al herkende containers tonen",
+    "review.queueFilteredEmpty": "Alles is al herkend. Zet de schakelaar aan om opnieuw te herkennen.",
     "review.noApiKey": "Geen Anthropic API-sleutel ingesteld.",
     "review.openSettings": "Instellingen openen",
     "review.identify": "Herkennen",
@@ -298,6 +300,8 @@ const dict = {
 
     "review.queueLabel": "Ready for AI identification",
     "review.queueEmpty": "No containers with photos waiting.",
+    "review.showIdentified": "Show already-identified containers too",
+    "review.queueFilteredEmpty": "Everything's already identified. Turn on the toggle to re-identify.",
     "review.noApiKey": "No Anthropic API key configured.",
     "review.openSettings": "Open settings",
     "review.identify": "Identify",
