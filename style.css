@@ -841,6 +841,27 @@ textarea {
   color: var(--accent);
 }
 
+/* The closed-row indicator that structured specs exist — a plain icon
+   alone (item-fields-toggle-btn, above) turned out too easy to miss
+   entirely, so this shows the actual key: value content and doubles as
+   the click target to open the panel. */
+.item-fields-summary {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  font-size: 12px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .item-fields-list {
   display: flex;
   flex-direction: column;
@@ -1280,6 +1301,12 @@ textarea {
   .print-empty {
     color: #888;
     font-style: italic;
+  }
+
+  .print-item-fields {
+    font-size: 10px;
+    color: #666;
+    margin-top: 1px;
   }
 
   /* Label sheet — small cut-out cards, not a report. No fixed sheet SKU

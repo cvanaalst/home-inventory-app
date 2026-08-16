@@ -26,6 +26,7 @@ import * as db from "./db.js";
 import { dictionaryKeys } from "./i18n.js";
 import { render } from "./markdown.js";
 import * as report from "./report.js";
+import { formatFieldsSummary } from "./report.js";
 import * as merge from "./merge.js";
 import { parseItemsPayload, buildMultipartBody } from "./sync.js";
 import * as aiplan from "./aiplan.js";
@@ -510,16 +511,39 @@ section("buildCsvExport");
   assertTrue(rows[1].startsWith("BOX-001,Cables box,Office,USB cable,3,cables,,confirmed,"), "a normal row resolves the item's container code/name and its location path");
 }
 
+section("formatFieldsSummary");
+assertEqual(formatFieldsSummary([]), "", "no fields summarizes to an empty string, not '· ·' or similar punctuation noise");
+assertEqual(formatFieldsSummary(undefined), "", "a missing fields array (older record, or an item type that never had any) doesn't throw");
+assertEqual(formatFieldsSummary([{ id: "f1", key: "Tolerance", value: "5%" }]), "Tolerance: 5%", "a single field reads as 'key: value'");
+assertEqual(
+  formatFieldsSummary([
+    { id: "f1", key: "Tolerance", value: "5%" },
+    { id: "f2", key: "Power", value: "0.25W" },
+  ]),
+  "Tolerance: 5% · Power: 0.25W",
+  "multiple fields join with a middle dot, in the array's own order",
+);
+assertEqual(formatFieldsSummary([{ id: "f1", key: "SMD", value: "" }]), "SMD", "a field with a key but no value reads as just the key — a bare label is a legitimate spec, not a broken one with a dangling colon");
+
 section("buildPrintReportHtml");
 {
   const t = (key, vars) => (vars ? `${key}(${JSON.stringify(vars)})` : key); // stub translator, per BLUEPRINT.md §4
   const locations = [{ id: "l1", type: "location", room: "Office", storage: "", section: "", title: "" }];
   const containers = [{ id: "c1", type: "container", code: "BOX-001", title: "Cables box", linkedIds: ["l1"] }];
-  const items = [{ id: "i1", type: "item", title: "USB cable", quantity: 2, category: "cables", linkedIds: ["c1"] }];
+  const items = [
+    { id: "i1", type: "item", title: "USB cable", quantity: 2, category: "cables", linkedIds: ["c1"] },
+    { id: "i2", type: "item", title: "Resistor", quantity: 10, category: "resistors", linkedIds: ["c1"], fields: [{ id: "f1", key: "Tolerance", value: "5%" }] },
+  ];
   const html = report.buildPrintReportHtml({ containers, items, locations, includeNotes: false, t });
   assertTrue(html.includes("BOX-001"), "the print report includes the container's code");
   assertTrue(html.includes("USB cable"), "the print report includes the item's title");
   assertTrue(html.includes("Office"), "the print report groups containers under their location path");
+  assertTrue(html.includes("Tolerance: 5%"), "an item's structured specs print alongside it — otherwise the printed sheet is missing exactly the detail a component needs to be identified from a bin");
+  const rows = html.split("<tr>");
+  const usbCableRow = rows.find((r) => r.includes("USB cable"));
+  const resistorRow = rows.find((r) => r.includes("Resistor"));
+  assertTrue(!usbCableRow.includes("print-item-fields"), "an item with no specs gets no specs line — the row isn't padded with an empty div just because a sibling item has one");
+  assertTrue(resistorRow.includes("Tolerance: 5%"), "the specs line sits inside its own item's row, not detached elsewhere in the table");
 }
 {
   const t = (key) => key;

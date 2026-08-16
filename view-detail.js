@@ -7,7 +7,7 @@ import { queryItems, getItem, putItem, putItems, makeRecord, makeId, getMedia, n
 import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
-import { buildPrintReportHtml } from "./report.js";
+import { buildPrintReportHtml, formatFieldsSummary } from "./report.js";
 
 export function initDetailView({ onDeleted }) {
   const codeEl = document.getElementById("detail-code");
@@ -157,6 +157,7 @@ export function initDetailView({ onDeleted }) {
   function itemRowHtml(item) {
     const link = (item.links || [])[0];
     const fieldCount = (item.fields || []).length;
+    const fieldsSummary = formatFieldsSummary(item.fields);
     return `
       <div class="swipe-row" data-item-id="${item.id}">
         <div class="swipe-actions right">${icon("trash", { size: 18 })}</div>
@@ -176,6 +177,7 @@ export function initDetailView({ onDeleted }) {
             <button type="button" class="btn-icon item-fields-toggle-btn${fieldCount ? " has-fields" : ""}" title="${escapeHtml(t("item.specs"))}">${icon("info", { size: 18 })}</button>
             <button type="button" class="btn-icon item-move-btn" title="${escapeHtml(t("item.moveTo"))}">${icon("move", { size: 18 })}</button>
           </div>
+          <button type="button" class="item-fields-summary"${fieldsSummary ? "" : " hidden"}>${escapeHtml(fieldsSummary)}</button>
           <div class="move-row" hidden style="margin-top: 8px">
             <select class="item-move-select"></select>
           </div>
@@ -309,6 +311,7 @@ export function initDetailView({ onDeleted }) {
     // ---------- structured fields (specs) ----------
 
     const fieldsToggleBtn = row.querySelector(".item-fields-toggle-btn");
+    const fieldsSummaryBtn = row.querySelector(".item-fields-summary");
     const fieldsPanel = row.querySelector(".item-fields-panel");
     const fieldsListEl = row.querySelector(".item-fields-list");
 
@@ -327,6 +330,13 @@ export function initDetailView({ onDeleted }) {
     function commitFields() {
       const fields = readFieldsFromPanel();
       fieldsToggleBtn.classList.toggle("has-fields", fields.length > 0);
+      // The closed-row summary must stay in sync with the panel that's
+      // actually open, not wait for the next full renderItems() — same
+      // "closed header still answers what's in here" reasoning as the
+      // has-fields class above.
+      const summary = formatFieldsSummary(fields);
+      fieldsSummaryBtn.textContent = summary;
+      fieldsSummaryBtn.hidden = !summary;
       return patchItem(item.id, { fields });
     }
 
@@ -340,9 +350,13 @@ export function initDetailView({ onDeleted }) {
     }
     fieldsListEl.querySelectorAll(".item-field-row").forEach(wireFieldRow);
 
+    function openFieldsPanel() {
+      fieldsPanel.hidden = false;
+    }
     fieldsToggleBtn.addEventListener("click", () => {
       fieldsPanel.hidden = !fieldsPanel.hidden;
     });
+    fieldsSummaryBtn.addEventListener("click", openFieldsPanel);
     row.querySelector(".item-field-add-btn").addEventListener("click", () => {
       const blank = { id: makeId(), key: "", value: "" };
       fieldsListEl.insertAdjacentHTML("beforeend", fieldRowHtml(blank));

@@ -14,6 +14,14 @@ function locationPathOf(location) {
   return [location.room, location.storage, location.section, location.title].filter(Boolean).join(" › ");
 }
 
+/** "Tolerance: 5% · Power: 0.25W" — the one place this join happens, so the
+ * on-screen summary (view-detail.js) and the print table read identically.
+ * Entries with no key are already impossible (normalizeFields drops them),
+ * but an empty value is legitimate — a spec can be a bare label. */
+export function formatFieldsSummary(fields) {
+  return (fields || []).map((f) => (f.value ? `${f.key}: ${f.value}` : f.key)).join(" · ");
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // insights
 // ────────────────────────────────────────────────────────────────────────
@@ -200,10 +208,11 @@ export function buildPrintReportHtml({ containers, items, locations, includeNote
 
     const rows = containerItems.length
       ? containerItems
-          .map(
-            (it) =>
-              `<tr><td class="print-qty">${it.quantity}</td><td>${escapeHtml(it.title)}</td><td class="print-cat">${escapeHtml(it.category)}</td></tr>`,
-          )
+          .map((it) => {
+            const specs = formatFieldsSummary(it.fields);
+            const specsLine = specs ? `<div class="print-item-fields">${escapeHtml(specs)}</div>` : "";
+            return `<tr><td class="print-qty">${it.quantity}</td><td>${escapeHtml(it.title)}${specsLine}</td><td class="print-cat">${escapeHtml(it.category)}</td></tr>`;
+          })
           .join("")
       : `<tr><td colspan="3" class="print-empty">${escapeHtml(t("report.print.noItems"))}</td></tr>`;
 
