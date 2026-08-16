@@ -242,12 +242,13 @@
     <section id="view-detail" class="view view-pushed" data-view hidden>
       <header class="view-header">
         <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
-        <span id="detail-code" class="row-title" style="font-family: var(--font-mono); font-size: 18px"></span>
+        <input type="text" id="detail-code" class="detail-code-input" autocapitalize="characters" />
         <span id="detail-status-badge" class="badge" style="margin-left: auto"></span>
       </header>
       <div class="view-body" id="detail-body">
         <p class="empty-state" id="detail-not-found" hidden data-i18n="detail.notFound"></p>
         <div id="detail-content" hidden>
+          <p class="error-text" id="detail-code-error" hidden></p>
           <div class="card">
             <label class="field">
               <span data-i18n="detail.name"></span>
@@ -298,6 +299,40 @@
           <button class="btn btn-block" id="detail-add-item-btn" data-i18n="detail.addItem" style="margin-bottom: 24px"></button>
 
           <button class="btn btn-block" id="detail-print-btn" data-i18n="detail.printContainer" style="margin-bottom: 12px"></button>
+
+          <button class="btn btn-block" id="detail-copy-btn" data-i18n="detail.copyItems" style="margin-bottom: 12px"></button>
+          <div id="detail-copy-form" class="card" hidden>
+            <label class="field">
+              <span data-i18n="detail.copyTarget"></span>
+              <select id="detail-copy-target-select"></select>
+            </label>
+            <div id="detail-copy-new-fields" hidden>
+              <div class="field-row">
+                <label class="field" style="max-width: 110px">
+                  <span data-i18n="search.codePrefix"></span>
+                  <input type="text" id="detail-copy-new-prefix" autocapitalize="characters" />
+                </label>
+                <label class="field grow">
+                  <span data-i18n="detail.code"></span>
+                  <input type="text" id="detail-copy-new-code" autocapitalize="characters" />
+                </label>
+              </div>
+              <label class="field">
+                <span data-i18n="detail.name"></span>
+                <input type="text" id="detail-copy-new-name" />
+              </label>
+              <label class="field">
+                <span data-i18n="detail.location"></span>
+                <select id="detail-copy-new-location"></select>
+              </label>
+            </div>
+            <div class="row">
+              <button type="button" class="btn btn-primary grow" id="detail-copy-confirm-btn" data-i18n="detail.copyConfirm"></button>
+              <button type="button" class="btn" id="detail-copy-cancel-btn" data-i18n="action.cancel"></button>
+            </div>
+            <p class="error-text" id="detail-copy-error" hidden></p>
+          </div>
+
           <button class="btn btn-block btn-danger" id="detail-delete-btn" data-i18n="detail.deleteContainer"></button>
         </div>
       </div>

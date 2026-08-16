@@ -3,7 +3,7 @@
 // the location select is write-through, text fields are save-gated on
 // blur, item quantity is write-through, item text fields are save-gated.
 
-import { queryItems, getItem, putItem, putItems, makeRecord, getMedia } from "./db.js";
+import { queryItems, getItem, putItem, putItems, makeRecord, getMedia, normalizeCode, nextCode } from "./db.js";
 import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
@@ -33,6 +33,19 @@ export function initDetailView({ onDeleted }) {
   const printBtn = document.getElementById("detail-print-btn");
   const categoryOptionsEl = document.getElementById("category-options");
   const photoGrid = document.getElementById("detail-photo-grid");
+  const codeErrorEl = document.getElementById("detail-code-error");
+  const copyBtn = document.getElementById("detail-copy-btn");
+  const copyForm = document.getElementById("detail-copy-form");
+  const copyTargetSelect = document.getElementById("detail-copy-target-select");
+  const copyNewFields = document.getElementById("detail-copy-new-fields");
+  const copyNewPrefix = document.getElementById("detail-copy-new-prefix");
+  const copyNewCode = document.getElementById("detail-copy-new-code");
+  const copyNewName = document.getElementById("detail-copy-new-name");
+  const copyNewLocation = document.getElementById("detail-copy-new-location");
+  const copyConfirmBtn = document.getElementById("detail-copy-confirm-btn");
+  const copyCancelBtn = document.getElementById("detail-copy-cancel-btn");
+  const copyErrorEl = document.getElementById("detail-copy-error");
+  const NEW_CONTAINER_OPTION = "__new__";
 
   let container = null;
   let locations = [];
@@ -82,7 +95,7 @@ export function initDetailView({ onDeleted }) {
   }
 
   function renderHeader() {
-    codeEl.textContent = container.code;
+    codeEl.value = container.code;
     badgeEl.textContent = container.status;
     badgeEl.className = statusBadgeClass(container.status);
   }
@@ -300,6 +313,27 @@ export function initDetailView({ onDeleted }) {
     });
   }
 
+  // Rename: same two-speed blur-save as title/notes, but codes must stay
+  // unique across containers — normalizeCode() runs the same transform
+  // db.js applies on save, so the pre-write duplicate check compares
+  // apples to apples instead of against the raw, un-normalized input.
+  codeEl.addEventListener("blur", async () => {
+    codeErrorEl.hidden = true;
+    const next = normalizeCode(codeEl.value);
+    if (!next || next === container.code) {
+      codeEl.value = container.code;
+      return;
+    }
+    if (containers.some((c) => c.id !== container.id && c.code === next)) {
+      codeErrorEl.textContent = t("search.codeExists", { code: next });
+      codeErrorEl.hidden = false;
+      codeEl.value = container.code;
+      return;
+    }
+    await patchContainer({ code: next });
+    codeEl.value = container.code;
+  });
+
   titleInput.addEventListener("blur", () => {
     const next = titleInput.value.trim();
     if (next !== container.title) patchContainer({ title: next });
@@ -367,6 +401,101 @@ export function initDetailView({ onDeleted }) {
     window.print();
   });
 
+  // ---------- copy items to another container ----------
+  //
+  // Duplicates this container's items (title/qty/category/tags/links/state/
+  // source all carried over) into a target container — an existing one, or
+  // a brand-new one created inline via the same prefix/code/name/location
+  // mini-form used elsewhere. Photos are deliberately NOT copied: "content"
+  // here means the item list, same word the rest of this view already uses
+  // (detail.itemsCount) — a container's photos are its own capture record,
+  // not part of what gets duplicated.
+
+  function openCopyForm() {
+    copyErrorEl.hidden = true;
+    copyTargetSelect.innerHTML =
+      `<option value="${NEW_CONTAINER_OPTION}">${escapeHtml(t("detail.copyNewOption"))}</option>` +
+      containers
+        .filter((c) => c.id !== container.id)
+        .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: "base" }))
+        .map((c) => `<option value="${c.id}">${escapeHtml(c.code)}${c.title ? ` — ${escapeHtml(c.title)}` : ""}</option>`)
+        .join("");
+    copyTargetSelect.value = NEW_CONTAINER_OPTION;
+    copyNewFields.hidden = false;
+    copyNewPrefix.value = "";
+    copyNewCode.value = nextCode(containers.map((c) => c.code), "BOX");
+    copyNewName.value = "";
+    populateLocationSelect(copyNewLocation, locations, (container.linkedIds || [])[0], { noneLabel: t("detail.noLocation") });
+    copyForm.hidden = false;
+    copyBtn.hidden = true;
+  }
+
+  function closeCopyForm() {
+    copyForm.hidden = true;
+    copyBtn.hidden = false;
+  }
+
+  copyBtn.addEventListener("click", openCopyForm);
+  copyCancelBtn.addEventListener("click", closeCopyForm);
+
+  copyTargetSelect.addEventListener("change", () => {
+    copyNewFields.hidden = copyTargetSelect.value !== NEW_CONTAINER_OPTION;
+  });
+  copyNewPrefix.addEventListener("blur", () => {
+    copyNewCode.value = nextCode(containers.map((c) => c.code), copyNewPrefix.value.trim() || "BOX");
+  });
+
+  copyConfirmBtn.addEventListener("click", async () => {
+    copyErrorEl.hidden = true;
+    let target;
+
+    if (copyTargetSelect.value === NEW_CONTAINER_OPTION) {
+      const code = normalizeCode(copyNewCode.value);
+      if (!code) {
+        copyErrorEl.textContent = t("search.codeRequired");
+        copyErrorEl.hidden = false;
+        return;
+      }
+      if (containers.some((c) => c.code === code)) {
+        copyErrorEl.textContent = t("search.codeExists", { code });
+        copyErrorEl.hidden = false;
+        return;
+      }
+      const record = makeRecord({
+        type: "container",
+        code,
+        title: copyNewName.value.trim(),
+        status: "captured",
+        linkedIds: copyNewLocation.value ? [copyNewLocation.value] : [],
+      });
+      target = await putItem(record);
+      containers.push(target);
+    } else {
+      target = containers.find((c) => c.id === copyTargetSelect.value);
+      if (!target) return;
+    }
+
+    const copies = items.map((i) =>
+      makeRecord({
+        type: "item",
+        title: i.title,
+        quantity: i.quantity,
+        category: i.category,
+        tags: i.tags,
+        links: i.links,
+        fields: i.fields,
+        state: i.state,
+        source: i.source,
+        linkedIds: [target.id],
+      }),
+    );
+    if (copies.length) await putItems(copies);
+
+    closeCopyForm();
+    const key = copies.length === 1 ? "detail.copySuccess.one" : "detail.copySuccess";
+    toast(t(key, { count: copies.length, code: target.code }), "info");
+  });
+
   // ---------- delete container (cascades to its items) ----------
 
   deleteBtn.addEventListener("click", () => {
@@ -389,6 +518,8 @@ export function initDetailView({ onDeleted }) {
     if (!containerId) return;
     const ok = await reload(containerId);
     if (!ok) return;
+    codeErrorEl.hidden = true;
+    closeCopyForm();
     renderHeader();
     renderFields();
     await renderPhotos();
