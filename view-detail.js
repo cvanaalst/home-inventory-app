@@ -3,7 +3,7 @@
 // the location select is write-through, text fields are save-gated on
 // blur, item quantity is write-through, item text fields are save-gated.
 
-import { queryItems, getItem, putItem, putItems, putMedia, makeRecord, makeId, getMedia, normalizeCode, nextCode } from "./db.js";
+import { queryItems, getItem, putItem, putItems, putMedia, cloneMedia, makeRecord, makeId, getMedia, normalizeCode, nextCode } from "./db.js";
 import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox, resizeImageToBlob } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
@@ -549,10 +549,11 @@ export function initDetailView({ onDeleted }) {
   // Duplicates this container's items (title/qty/category/tags/links/state/
   // source all carried over) into a target container — an existing one, or
   // a brand-new one created inline via the same prefix/code/name/location
-  // mini-form used elsewhere. Photos are deliberately NOT copied: "content"
-  // here means the item list, same word the rest of this view already uses
-  // (detail.itemsCount) — a container's photos are its own capture record,
-  // not part of what gets duplicated.
+  // mini-form used elsewhere. The source's notes and photos come along too:
+  // notes are appended after whatever the target already has (never
+  // overwritten — an existing container's own notes are never lost), and
+  // photos are cloned via cloneMedia rather than shared, so the two
+  // containers own independent copies from here on.
 
   function openCopyForm() {
     copyErrorEl.hidden = true;
@@ -591,8 +592,9 @@ export function initDetailView({ onDeleted }) {
   copyConfirmBtn.addEventListener("click", async () => {
     copyErrorEl.hidden = true;
     let target;
+    const isNewContainer = copyTargetSelect.value === NEW_CONTAINER_OPTION;
 
-    if (copyTargetSelect.value === NEW_CONTAINER_OPTION) {
+    if (isNewContainer) {
       const code = normalizeCode(copyNewCode.value);
       if (!code) {
         copyErrorEl.textContent = t("search.codeRequired");
@@ -612,11 +614,26 @@ export function initDetailView({ onDeleted }) {
         linkedIds: copyNewLocation.value ? [copyNewLocation.value] : [],
       });
       target = await putItem(record);
-      containers.push(target);
     } else {
       target = containers.find((c) => c.id === copyTargetSelect.value);
       if (!target) return;
     }
+
+    const patch = {};
+    if (container.comment) {
+      patch.comment = target.comment ? `${target.comment}\n\n${container.comment}` : container.comment;
+    }
+    if ((container.attachments || []).length) {
+      const clonedAttachments = [];
+      for (const a of container.attachments) {
+        const newMediaId = await cloneMedia(a.mediaId);
+        if (newMediaId) clonedAttachments.push({ ...a, mediaId: newMediaId });
+      }
+      patch.attachments = [...(target.attachments || []), ...clonedAttachments];
+    }
+    if (Object.keys(patch).length) target = await putItem({ ...target, ...patch });
+
+    containers = isNewContainer ? [...containers, target] : containers.map((c) => (c.id === target.id ? target : c));
 
     const copies = items.map((i) =>
       makeRecord({
