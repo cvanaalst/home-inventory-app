@@ -195,7 +195,17 @@ const SWIPE_REVEAL = 88;
 /** attachSwipeActions(rowEl, { onSwipeLeft, onSwipeRight, threshold }).
  * rowEl must contain a direct child with class "swipe-content". A real drag
  * (beyond a few px) suppresses the click that would otherwise follow
- * pointerup, so a swipe never also triggers the row's own tap handler. */
+ * pointerup, so a swipe never also triggers the row's own tap handler.
+ *
+ * Pointer capture is deferred until that same few-px threshold is crossed,
+ * not taken on pointerdown. Capturing eagerly would retarget the click
+ * event a plain tap produces to `content` itself — a browser-standard but
+ * easy-to-miss consequence of setPointerCapture — silently swallowing
+ * clicks on every button/input nested in the row (confirmed against real
+ * click delivery, not a synthetic .click() call, in both Chrome and
+ * Safari: qty steppers, delete, move, and the fields-summary pill were all
+ * unclickable). A plain tap never captures at all, so it hits the actual
+ * element normally. */
 export function attachSwipeActions(rowEl, { onSwipeLeft, onSwipeRight, threshold = 56 } = {}) {
   const content = rowEl.querySelector(".swipe-content");
   if (!content) return;
@@ -204,6 +214,7 @@ export function attachSwipeActions(rowEl, { onSwipeLeft, onSwipeRight, threshold
   let dx = 0;
   let dragging = false;
   let dragged = false;
+  let pointerId = null;
 
   function setX(x, animate) {
     content.style.transition = animate ? "transform 160ms ease-out" : "none";
@@ -216,16 +227,20 @@ export function attachSwipeActions(rowEl, { onSwipeLeft, onSwipeRight, threshold
     dragged = false;
     startX = e.clientX;
     dx = 0;
-    content.setPointerCapture(e.pointerId);
-    setX(0, false);
+    pointerId = e.pointerId;
   });
 
   content.addEventListener("pointermove", (e) => {
     if (!dragging) return;
     dx = e.clientX - startX;
-    if (Math.abs(dx) > 8) dragged = true;
-    const clamped = Math.max(-SWIPE_REVEAL, Math.min(SWIPE_REVEAL, dx));
-    setX(clamped, false);
+    if (!dragged && Math.abs(dx) > 8) {
+      dragged = true;
+      content.setPointerCapture(pointerId);
+    }
+    if (dragged) {
+      const clamped = Math.max(-SWIPE_REVEAL, Math.min(SWIPE_REVEAL, dx));
+      setX(clamped, false);
+    }
   });
 
   function end() {
