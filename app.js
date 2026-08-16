@@ -141,6 +141,22 @@ function announce(message) {
   });
 }
 
+// ---------- unhandled write failures ----------
+//
+// Every write in this app is optimistic (§9): the UI paints the new value
+// before the write's promise resolves, and no view awaits it inside a
+// try/catch (patchItem/patchContainer and their equivalents just chain
+// .then, or await plainly). That's the right call for a snappy local-first
+// UI on the happy path, but it means a REJECTED write — quota exceeded, a
+// blocked/corrupted IndexedDB connection — currently has no path to the
+// user at all: it dies as a console-only unhandled rejection while the
+// screen still shows the edit as if it landed. This is the one place that
+// can catch it project-wide instead of adding try/catch to every call site.
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("Unhandled rejection:", event.reason);
+  toast(t("toast.writeFailed"), "error");
+});
+
 // ---------- app badge (§8.16 polish) ----------
 //
 // This app has no due-reminder concept, so the badge instead counts what's

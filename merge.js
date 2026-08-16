@@ -58,9 +58,20 @@ function extractMediaId(filename) {
 
 /** Computes the four media actions a sync needs to perform, from the
  * merged record set plus what currently exists locally/remotely. Every
- * decision is driven by which mediaIds are still REFERENCED by a live
- * (non-deleted) record in `merged` — not by what happens to exist in
- * either store, which is what makes deletions propagate correctly.
+ * decision is driven by which mediaIds are still REFERENCED by a record
+ * still worth keeping media for — not by what happens to exist in either
+ * store, which is what makes deletions propagate correctly.
+ *
+ * "Still worth keeping media for" is NOT simply "not deletedAt": a record
+ * sitting in Trash (deletedAt set, restoredAt/purgedAt not) is still
+ * restorable, and view-trash.js's restore() only clones its attachments
+ * onto a fresh record — the OLD tombstone's own attachments (and their
+ * media) must survive that whole window, or a restore lands on photos
+ * that sync already deleted out from under it. Media is only released
+ * once the record is either restoredAt (superseded by the clone, so its
+ * own copy is redundant) or purgedAt (view-trash.js's purgeForever wipes
+ * `attachments` to [] at that point anyway — checked here too as the
+ * authoritative signal, not an accident of that call site's ordering).
  *
  * Deliberately NOT gated on the local blob still existing: local deletion
  * purges the blob within seconds, so waiting for it to still be present
@@ -69,7 +80,7 @@ function extractMediaId(filename) {
 export function computeMediaActions(merged, localMediaIds, remoteMediaNames) {
   const wanted = new Set();
   for (const record of merged) {
-    if (record.deletedAt) continue;
+    if (record.restoredAt || record.purgedAt) continue;
     for (const att of record.attachments || []) {
       if (att.mediaId) wanted.add(att.mediaId);
     }

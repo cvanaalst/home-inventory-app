@@ -176,7 +176,7 @@ export function initDetailView({ onDeleted }) {
       <div class="row item-field-row" data-field-id="${field.id}">
         <input type="text" class="item-field-key" value="${escapeHtml(field.key)}" placeholder="${escapeHtml(t("item.fieldKey"))}" maxlength="40" />
         <input type="text" class="grow item-field-value" value="${escapeHtml(field.value)}" placeholder="${escapeHtml(t("item.fieldValue"))}" maxlength="200" />
-        <button type="button" class="btn-icon item-field-remove-btn" data-i18n-aria="action.delete">${icon("close", { size: 16 })}</button>
+        <button type="button" class="btn-icon item-field-remove-btn" aria-label="${escapeHtml(t("action.delete"))}">${icon("close", { size: 16 })}</button>
       </div>`;
   }
 
@@ -195,7 +195,7 @@ export function initDetailView({ onDeleted }) {
               <button type="button" data-qty-inc aria-label="+">＋</button>
             </div>
             <input type="text" class="grow item-title-input" value="${escapeHtml(item.title)}" maxlength="100" />
-            <button type="button" class="btn-icon item-delete-btn" data-i18n-aria="action.delete">${icon("close", { size: 18 })}</button>
+            <button type="button" class="btn-icon item-delete-btn" aria-label="${escapeHtml(t("action.delete"))}">${icon("close", { size: 18 })}</button>
           </div>
           <div class="item-row-sub">
             <input type="text" class="cat-input item-category-input" list="category-options" value="${escapeHtml(item.category)}" placeholder="${escapeHtml(t("item.category"))}" />

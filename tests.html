@@ -714,11 +714,11 @@ section("computeMediaActions");
     { id: "r1", deletedAt: null, attachments: [{ mediaId: "m-local-only" }] },
     { id: "r2", deletedAt: null, attachments: [{ mediaId: "m-remote-only" }] },
     { id: "r3", deletedAt: null, attachments: [{ mediaId: "m-both" }] },
-    // this record is DELETED, so its attachment must not keep its media alive
-    { id: "r4", deletedAt: "2026-01-01T00:00:00.000Z", attachments: [{ mediaId: "m-orphaned-by-delete" }] },
+    // purged (permanently deleted, never restorable) — its attachment must not keep its media alive
+    { id: "r4", deletedAt: "2026-01-01T00:00:00.000Z", purgedAt: "2026-01-02T00:00:00.000Z", attachments: [{ mediaId: "m-orphaned-by-purge" }] },
   ];
   const localMediaIds = ["m-local-only", "m-both", "m-unreferenced-local"];
-  const remoteMediaNames = ["m-remote-only__photo.jpg", "m-both__spec.pdf", "m-orphaned-by-delete__old.jpg"];
+  const remoteMediaNames = ["m-remote-only__photo.jpg", "m-both__spec.pdf", "m-orphaned-by-purge__old.jpg"];
 
   const actions = merge.computeMediaActions(merged, localMediaIds, remoteMediaNames);
 
@@ -727,18 +727,39 @@ section("computeMediaActions");
   assertEqual(actions.toDeleteLocal, ["m-unreferenced-local"], "a local blob no live record references anymore is an orphan and gets deleted locally");
   assertEqual(
     actions.toDeleteRemoteNames,
-    ["m-orphaned-by-delete__old.jpg"],
-    "a Drive file whose record was deleted gets removed from Drive too, matched by the '<mediaId>__' filename prefix",
+    ["m-orphaned-by-purge__old.jpg"],
+    "a Drive file whose record was permanently purged gets removed from Drive too, matched by the '<mediaId>__' filename prefix",
   );
 }
 {
-  // The local blob for a deleted record's attachment is USUALLY already
+  // A record merely sitting in Trash (deletedAt set, but not yet restored
+  // or purged) is still restorable — view-trash.js's restore() only
+  // clones its attachments onto a fresh record, so the original's own
+  // attachments (and their media, on both sides) must survive the entire
+  // window it spends in Trash. This is the exact bug a sync running while
+  // something sat in Trash used to trigger: the photo was gone, locally
+  // and on Drive, before the user ever got to Restore.
+  const merged = [{ id: "r1", deletedAt: "2026-01-01T00:00:00.000Z", restoredAt: null, purgedAt: null, attachments: [{ mediaId: "m1" }] }];
+  const actions = merge.computeMediaActions(merged, ["m1"], ["m1__photo.jpg"]);
+  assertEqual(actions.toDeleteLocal, [], "a trashed-but-not-yet-purged record's media is not deleted locally");
+  assertEqual(actions.toDeleteRemoteNames, [], "nor on Drive — it's still one Restore tap away from being live again");
+}
+{
+  // Once restored, the OLD tombstone's own (pre-clone) media is genuinely
+  // done — the live record now holds a fresh clone under a different id.
+  const merged = [{ id: "r1", deletedAt: "2026-01-01T00:00:00.000Z", restoredAt: "2026-01-03T00:00:00.000Z", attachments: [{ mediaId: "m1-old" }] }];
+  const actions = merge.computeMediaActions(merged, ["m1-old"], ["m1-old__photo.jpg"]);
+  assertEqual(actions.toDeleteLocal, ["m1-old"], "a restored tombstone's own pre-clone media is released, not kept alive forever");
+  assertEqual(actions.toDeleteRemoteNames, ["m1-old__photo.jpg"], "same on Drive — the live record's clone is what matters now, under its own new mediaId");
+}
+{
+  // The local blob for a purged record's attachment is USUALLY already
   // gone (local deletion purges it within seconds) — the Drive-side delete
   // must never be gated on it still being present locally, or the Drive
   // copy orphans forever (a real bug documented in BLUEPRINT.md §7).
-  const merged = [{ id: "r1", deletedAt: "2026-01-01T00:00:00.000Z", attachments: [{ mediaId: "m1" }] }];
+  const merged = [{ id: "r1", purgedAt: "2026-01-01T00:00:00.000Z", attachments: [{ mediaId: "m1" }] }];
   const actions = merge.computeMediaActions(merged, [], ["m1__photo.jpg"]);
-  assertEqual(actions.toDeleteRemoteNames, ["m1__photo.jpg"], "the Drive file is queued for deletion even though the local blob is already gone — deletion is driven only by whether any live record still wants it");
+  assertEqual(actions.toDeleteRemoteNames, ["m1__photo.jpg"], "the Drive file is queued for deletion even though the local blob is already gone — deletion is driven only by whether any surviving record still wants it");
 }
 {
   const actions = merge.computeMediaActions([], [], []);

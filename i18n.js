@@ -101,6 +101,7 @@ const dict = {
     "about.line": "{designer} · {date} · build {build}",
 
     "action.create": "Aanmaken",
+    "action.close": "Sluiten",
     "action.cancel": "Annuleren",
     "action.save": "Opslaan",
     "action.add": "Toevoegen",
@@ -185,6 +186,7 @@ const dict = {
     "toast.containerDeleted": "Container verwijderd",
     "toast.locationDeleted": "Locatie verwijderd",
     "toast.undo": "Ongedaan maken",
+    "toast.writeFailed": "Wijziging niet opgeslagen — controleer de opslagruimte en probeer het opnieuw.",
 
     "update.available": "Nieuwe versie beschikbaar",
     "update.reload": "Herladen",
@@ -424,6 +426,7 @@ const dict = {
     "about.line": "{designer} · {date} · build {build}",
 
     "action.create": "Create",
+    "action.close": "Close",
     "action.cancel": "Cancel",
     "action.save": "Save",
     "action.add": "Add",
@@ -508,6 +511,7 @@ const dict = {
     "toast.containerDeleted": "Container deleted",
     "toast.locationDeleted": "Location deleted",
     "toast.undo": "Undo",
+    "toast.writeFailed": "Change not saved — check available storage and try again.",
 
     "update.available": "A new version is available",
     "update.reload": "Reload",

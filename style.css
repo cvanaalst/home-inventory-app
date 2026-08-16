@@ -964,6 +964,14 @@ textarea {
   padding: 4px 8px;
 }
 
+.toast-error {
+  border-color: var(--danger);
+}
+
+.toast-error .toast-message::before {
+  content: "⚠ ";
+}
+
 /* ============================================================
    Dialogs
    ============================================================ */

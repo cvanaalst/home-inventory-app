@@ -3,6 +3,7 @@
 // per open — see BLUEPRINT.md §9 "The widget pattern".
 
 import { locationPath } from "./db.js";
+import { t } from "./i18n.js";
 
 // ────────────────────────────────────────────────────────────────────────
 // toast — undo-on-toast for reversible destructive actions (§8, §19.8).
@@ -23,8 +24,12 @@ export function toast(message, kind = "info", opts = {}) {
   if (!root) return;
 
   const el = document.createElement("div");
-  el.className = "toast";
-  el.setAttribute("role", "status");
+  // `kind` was accepted here and threaded through every call site
+  // (settings.sync.syncError, etc.) but never actually reached the
+  // element — every toast rendered identically regardless of severity,
+  // so an error was visually indistinguishable from "item deleted".
+  el.className = `toast toast-${kind}`;
+  el.setAttribute("role", kind === "error" ? "alert" : "status");
 
   const msg = document.createElement("span");
   msg.className = "toast-message";
@@ -133,9 +138,9 @@ function openDialog(messageHtmlOrText, buttons) {
   });
 }
 
-export function confirmDialog(message, okLabel = "OK") {
+export function confirmDialog(message, okLabel = t("action.confirm")) {
   return openDialog(message, [
-    { label: "Cancel", value: false },
+    { label: t("action.cancel"), value: false },
     { label: okLabel, value: true, primary: true },
   ]);
 }
@@ -160,7 +165,7 @@ export function openLightbox(url) {
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
   closeBtn.className = "lightbox-close";
-  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.setAttribute("aria-label", t("action.close"));
   closeBtn.textContent = "×";
   backdrop.append(img, closeBtn);
   root.appendChild(backdrop);
