@@ -228,3 +228,27 @@ export function buildPrintReportHtml({ containers, items, locations, includeNote
     ${sections.join("\n") || `<p>${escapeHtml(t("report.print.empty"))}</p>`}
   `;
 }
+
+/** One small cut-out card per container — code, name, location path.
+ * Deliberately no QR: a printed code that links back into the app opens in
+ * Safari, not the installed PWA, on iOS (BLUEPRINT.md §13.3) — a link is
+ * the wrong mechanism here, not just an omitted nice-to-have. `containers`
+ * should already be scoped to whatever the caller wants printed. */
+export function buildLabelSheetHtml({ containers, locations, t }) {
+  const locationsById = new Map(locations.map((l) => [l.id, l]));
+  const sorted = [...containers].filter((c) => !c.deletedAt).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: "base" }));
+
+  const cards = sorted
+    .map((c) => {
+      const path = locationPathOf(locationsById.get((c.linkedIds || [])[0]));
+      return `
+      <div class="label-card">
+        <div class="label-code">${escapeHtml(c.code)}</div>
+        ${c.title ? `<div class="label-name">${escapeHtml(c.title)}</div>` : ""}
+        ${path ? `<div class="label-path">${escapeHtml(path)}</div>` : ""}
+      </div>`;
+    })
+    .join("");
+
+  return `<div class="label-sheet">${cards || `<p>${escapeHtml(t("report.print.empty"))}</p>`}</div>`;
+}

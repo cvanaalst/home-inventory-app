@@ -67,6 +67,9 @@ const dict = {
 
     "more.locations.sub": "Ruimtes en opslagplekken beheren",
     "more.labels.sub": "Labels afdrukken voor containers",
+    "labels.empty": "Nog geen containers om labels voor te printen.",
+    "labels.selectAll": "Alles selecteren",
+    "labels.print": "Labels afdrukken",
     "more.report.sub": "Totalen, per locatie",
     "more.trash.sub": "Verwijderde items herstellen",
     "more.synclog.sub": "Synchronisatiegeschiedenis",
@@ -132,6 +135,10 @@ const dict = {
     "item.category": "Categorie",
     "item.link": "Link / datasheet",
     "item.moveTo": "Verplaats naar container…",
+    "item.specs": "Specificaties",
+    "item.addSpec": "＋ Specificatie toevoegen",
+    "item.fieldKey": "Naam (bijv. weerstand)",
+    "item.fieldValue": "Waarde (bijv. 220Ω)",
     "item.draft": "concept",
 
     "items.filterPlaceholder": "🔎 Items filteren…",
@@ -341,6 +348,9 @@ const dict = {
 
     "more.locations.sub": "Manage rooms & storage places",
     "more.labels.sub": "Print labels for containers",
+    "labels.empty": "No containers to print labels for yet.",
+    "labels.selectAll": "Select all",
+    "labels.print": "Print labels",
     "more.report.sub": "Totals, by location",
     "more.trash.sub": "Restore deleted items",
     "more.synclog.sub": "Sync history",
@@ -406,6 +416,10 @@ const dict = {
     "item.category": "Category",
     "item.link": "Link / datasheet",
     "item.moveTo": "Move to container…",
+    "item.specs": "Specs",
+    "item.addSpec": "＋ Add spec",
+    "item.fieldKey": "Name (e.g. resistance)",
+    "item.fieldValue": "Value (e.g. 220Ω)",
     "item.draft": "draft",
 
     "items.filterPlaceholder": "🔎 Filter items…",

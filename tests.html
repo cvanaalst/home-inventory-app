@@ -527,6 +527,34 @@ section("buildPrintReportHtml");
   assertTrue(html.includes("report.print.empty"), "printing with no containers renders the translated empty state rather than a blank page");
 }
 
+section("buildLabelSheetHtml");
+{
+  const t = (key) => key;
+  const locations = [{ id: "l1", type: "location", room: "Office", storage: "Shelf", section: "", title: "" }];
+  const containers = [
+    { id: "c1", type: "container", code: "BOX-002", title: "Cables", linkedIds: ["l1"] },
+    { id: "c2", type: "container", code: "BOX-001", title: "", linkedIds: [] },
+  ];
+  const html = report.buildLabelSheetHtml({ containers, locations, t });
+  assertTrue(html.includes("BOX-001") && html.includes("BOX-002"), "every passed-in container gets a label card");
+  assertTrue(html.indexOf("BOX-001") < html.indexOf("BOX-002"), "cards are sorted by code, not by input order — the caller passes whatever was checked in the UI, in whatever order that happened to be");
+  assertTrue(html.includes("Cables"), "a container with a title shows it on the label");
+  assertTrue(html.includes("Office"), "a container with a location shows the location path on the label");
+  const box001Card = html.slice(html.indexOf("BOX-001"), html.indexOf("BOX-002"));
+  assertTrue(!box001Card.includes("label-name") && !box001Card.includes("label-path"), "a container with no title and no location omits those lines entirely rather than printing an empty label-name/label-path div");
+}
+{
+  const t = (key) => key;
+  const html = report.buildLabelSheetHtml({ containers: [], locations: [], t });
+  assertTrue(html.includes("report.print.empty"), "printing zero selected containers renders the translated empty state rather than an empty grid");
+}
+{
+  const t = (key) => key;
+  const deleted = [{ id: "c1", type: "container", code: "GONE-001", deletedAt: "2026-01-01T00:00:00.000Z", linkedIds: [] }];
+  const html = report.buildLabelSheetHtml({ containers: deleted, locations: [], t });
+  assertTrue(!html.includes("GONE-001"), "a soft-deleted container never gets a label printed, even if a stale selection somehow included it");
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // merge.js — two-way sync conflict resolution (pure, unit-tested FIRST
 // per BLUEPRINT.md §7 — a bug here is silent and ships straight to Drive)

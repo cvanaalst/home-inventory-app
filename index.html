@@ -291,6 +291,8 @@
               <span data-i18n="item.link"></span>
               <input type="text" id="new-item-link" autocapitalize="none" placeholder="https://…" />
             </label>
+            <div class="item-fields-list" id="new-item-fields-list"></div>
+            <button type="button" class="btn btn-sm" id="new-item-field-add-btn" data-i18n="item.addSpec" style="margin-bottom: 12px"></button>
             <div class="row">
               <button class="btn btn-primary grow" id="new-item-save" data-i18n="action.add"></button>
               <button class="btn" id="new-item-cancel" data-i18n="action.cancel"></button>
@@ -405,7 +407,13 @@
         <h1 data-i18n="view.labels.title"></h1>
       </header>
       <div class="view-body">
-        <p class="empty-state" data-i18n="empty.comingSoon"></p>
+        <p class="empty-state" id="labels-empty" hidden data-i18n="labels.empty"></p>
+        <label class="row" id="labels-select-all-row" style="margin-bottom: 10px; align-items: center; gap: 8px">
+          <input type="checkbox" id="labels-select-all" style="width: auto" />
+          <span data-i18n="labels.selectAll"></span>
+        </label>
+        <div class="list" id="labels-list"></div>
+        <button class="btn btn-block btn-primary" id="labels-print-btn" data-i18n="labels.print" style="margin-top: 16px"></button>
       </div>
     </section>
 

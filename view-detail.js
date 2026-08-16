@@ -3,7 +3,7 @@
 // the location select is write-through, text fields are save-gated on
 // blur, item quantity is write-through, item text fields are save-gated.
 
-import { queryItems, getItem, putItem, putItems, makeRecord, getMedia, normalizeCode, nextCode } from "./db.js";
+import { queryItems, getItem, putItem, putItems, makeRecord, makeId, getMedia, normalizeCode, nextCode } from "./db.js";
 import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
@@ -27,6 +27,8 @@ export function initDetailView({ onDeleted }) {
   const newItemQty = document.getElementById("new-item-quantity");
   const newItemCategory = document.getElementById("new-item-category");
   const newItemLink = document.getElementById("new-item-link");
+  const newItemFieldsList = document.getElementById("new-item-fields-list");
+  const newItemFieldAddBtn = document.getElementById("new-item-field-add-btn");
   const newItemSave = document.getElementById("new-item-save");
   const newItemCancel = document.getElementById("new-item-cancel");
   const deleteBtn = document.getElementById("detail-delete-btn");
@@ -140,8 +142,21 @@ export function initDetailView({ onDeleted }) {
     }
   }
 
+  // Structured key/value specs (BLUEPRINT.md §5) — resistor value, voltage
+  // rating, datasheet URL, whatever a category needs. The type only decides
+  // what's *suggested*; the mechanism is the same for every item.
+  function fieldRowHtml(field) {
+    return `
+      <div class="row item-field-row" data-field-id="${field.id}">
+        <input type="text" class="item-field-key" value="${escapeHtml(field.key)}" placeholder="${escapeHtml(t("item.fieldKey"))}" maxlength="40" />
+        <input type="text" class="grow item-field-value" value="${escapeHtml(field.value)}" placeholder="${escapeHtml(t("item.fieldValue"))}" maxlength="200" />
+        <button type="button" class="btn-icon item-field-remove-btn" data-i18n-aria="action.delete">${icon("close", { size: 16 })}</button>
+      </div>`;
+  }
+
   function itemRowHtml(item) {
     const link = (item.links || [])[0];
+    const fieldCount = (item.fields || []).length;
     return `
       <div class="swipe-row" data-item-id="${item.id}">
         <div class="swipe-actions right">${icon("trash", { size: 18 })}</div>
@@ -158,10 +173,15 @@ export function initDetailView({ onDeleted }) {
           <div class="item-row-sub">
             <input type="text" class="cat-input item-category-input" list="category-options" value="${escapeHtml(item.category)}" placeholder="${escapeHtml(t("item.category"))}" />
             <input type="text" class="link-input item-link-input" value="${escapeHtml(link ? link.url : "")}" placeholder="${escapeHtml(t("item.link"))}" autocapitalize="none" />
+            <button type="button" class="btn-icon item-fields-toggle-btn${fieldCount ? " has-fields" : ""}" title="${escapeHtml(t("item.specs"))}">${icon("info", { size: 18 })}</button>
             <button type="button" class="btn-icon item-move-btn" title="${escapeHtml(t("item.moveTo"))}">${icon("move", { size: 18 })}</button>
           </div>
           <div class="move-row" hidden style="margin-top: 8px">
             <select class="item-move-select"></select>
+          </div>
+          <div class="item-fields-panel" hidden style="margin-top: 8px">
+            <div class="item-fields-list">${(item.fields || []).map(fieldRowHtml).join("")}</div>
+            <button type="button" class="btn btn-sm item-field-add-btn" data-i18n="item.addSpec"></button>
           </div>
         </div>
       </div>`;
@@ -286,6 +306,51 @@ export function initDetailView({ onDeleted }) {
       itemsEmpty.hidden = itemsList.children.length > 0;
     });
 
+    // ---------- structured fields (specs) ----------
+
+    const fieldsToggleBtn = row.querySelector(".item-fields-toggle-btn");
+    const fieldsPanel = row.querySelector(".item-fields-panel");
+    const fieldsListEl = row.querySelector(".item-fields-list");
+
+    // The DOM is the source of truth for "what's in the panel right now",
+    // not the `items` array — normalizeFields() drops any field whose key
+    // is still empty (correctly: a spec with no name isn't a spec yet), so
+    // a freshly-added blank row never survives a round trip through
+    // patchItem. Reading it back from `items` afterward would find it
+    // already gone. Read the live inputs instead, on every write.
+    function readFieldsFromPanel() {
+      return [...fieldsListEl.querySelectorAll(".item-field-row")]
+        .map((r) => ({ id: r.getAttribute("data-field-id"), key: r.querySelector(".item-field-key").value.trim(), value: r.querySelector(".item-field-value").value.trim() }))
+        .filter((f) => f.key);
+    }
+
+    function commitFields() {
+      const fields = readFieldsFromPanel();
+      fieldsToggleBtn.classList.toggle("has-fields", fields.length > 0);
+      return patchItem(item.id, { fields });
+    }
+
+    function wireFieldRow(fieldRowEl) {
+      fieldRowEl.querySelector(".item-field-key").addEventListener("blur", commitFields);
+      fieldRowEl.querySelector(".item-field-value").addEventListener("blur", commitFields);
+      fieldRowEl.querySelector(".item-field-remove-btn").addEventListener("click", () => {
+        fieldRowEl.remove();
+        commitFields();
+      });
+    }
+    fieldsListEl.querySelectorAll(".item-field-row").forEach(wireFieldRow);
+
+    fieldsToggleBtn.addEventListener("click", () => {
+      fieldsPanel.hidden = !fieldsPanel.hidden;
+    });
+    row.querySelector(".item-field-add-btn").addEventListener("click", () => {
+      const blank = { id: makeId(), key: "", value: "" };
+      fieldsListEl.insertAdjacentHTML("beforeend", fieldRowHtml(blank));
+      const newRow = fieldsListEl.lastElementChild;
+      wireFieldRow(newRow);
+      newRow.querySelector(".item-field-key").focus();
+    });
+
     attachSwipeActions(row.closest(".swipe-row"), { onSwipeLeft: () => deleteItem(item) });
   }
 
@@ -361,11 +426,33 @@ export function initDetailView({ onDeleted }) {
 
   // ---------- add item ----------
 
+  // New-item fields have no item id to write through to yet, so unlike the
+  // per-row editor above, the DOM *is* the state — no shadow array to keep
+  // in sync. Add just appends a blank row; Save reads whatever's currently
+  // in the panel.
+  newItemFieldAddBtn.addEventListener("click", () => {
+    newItemFieldsList.insertAdjacentHTML("beforeend", fieldRowHtml({ id: makeId(), key: "", value: "" }));
+    const newRow = newItemFieldsList.lastElementChild;
+    newRow.querySelector(".item-field-remove-btn").addEventListener("click", () => newRow.remove());
+    newRow.querySelector(".item-field-key").focus();
+  });
+
+  function readNewItemFields() {
+    return [...newItemFieldsList.querySelectorAll(".item-field-row")]
+      .map((row) => ({
+        id: row.getAttribute("data-field-id"),
+        key: row.querySelector(".item-field-key").value.trim(),
+        value: row.querySelector(".item-field-value").value.trim(),
+      }))
+      .filter((f) => f.key);
+  }
+
   addItemBtn.addEventListener("click", () => {
     newItemTitle.value = "";
     newItemQty.value = "1";
     newItemCategory.value = "";
     newItemLink.value = "";
+    newItemFieldsList.innerHTML = "";
     itemForm.hidden = false;
     addItemBtn.hidden = true;
     newItemTitle.focus();
@@ -384,6 +471,7 @@ export function initDetailView({ onDeleted }) {
       quantity: Number.parseInt(newItemQty.value, 10) || 1,
       category: newItemCategory.value.trim(),
       links: link ? [{ label: "", url: link }] : [],
+      fields: readNewItemFields(),
       source: "manual",
       state: "confirmed",
       linkedIds: [container.id],

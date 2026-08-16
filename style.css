@@ -837,6 +837,35 @@ textarea {
   min-width: 100px;
 }
 
+.item-fields-toggle-btn.has-fields {
+  color: var(--accent);
+}
+
+.item-fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.item-field-row {
+  gap: 6px;
+}
+
+.item-field-key {
+  width: 100px;
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.item-field-value {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
 /* ============================================================
    Empty states, muted text
    ============================================================ */
@@ -1251,6 +1280,39 @@ textarea {
   .print-empty {
     color: #888;
     font-style: italic;
+  }
+
+  /* Label sheet — small cut-out cards, not a report. No fixed sheet SKU
+     assumed (Avery sizes vary by region and stock on hand); the dashed
+     border is the cut line for whatever paper is loaded. */
+  .label-sheet {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4mm;
+  }
+
+  .label-card {
+    border: 1px dashed #999;
+    border-radius: 3px;
+    padding: 3mm 4mm;
+    break-inside: avoid;
+  }
+
+  .label-code {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .label-name {
+    font-size: 11px;
+    margin-top: 1mm;
+  }
+
+  .label-path {
+    font-size: 9px;
+    color: #555;
+    margin-top: 1mm;
   }
 }
 

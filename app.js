@@ -11,6 +11,7 @@ import { getMeta, setMeta, requestPersistentStorage, getAllItems } from "./db.js
 import { initSearchView } from "./view-search.js";
 import { initItemsView } from "./view-items.js";
 import { initLocationsView } from "./view-locations.js";
+import { initLabelsView } from "./view-labels.js";
 import { initCaptureView } from "./view-capture.js";
 import { initReviewView } from "./view-review.js";
 import { initDetailView } from "./view-detail.js";
@@ -272,6 +273,7 @@ function initViews() {
   viewControllers["view-search"] = initSearchView({ onOpenContainer: openContainer });
   viewControllers["view-items"] = initItemsView({ onOpenContainer: openContainer });
   viewControllers["view-locations"] = initLocationsView();
+  viewControllers["view-labels"] = initLabelsView();
   viewControllers["view-capture"] = initCaptureView({ onOpenContainer: openContainer });
   viewControllers["view-review"] = initReviewView({ onOpenContainer: openContainer, onOpenSettings: () => pushView("view-settings") });
   viewControllers["view-detail"] = initDetailView({ onDeleted: () => history.back() });
