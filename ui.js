@@ -277,6 +277,13 @@ const SKELETON_DELAY_MS = 180;
 export function skeletonGate(hostEl, rowCount = 5) {
   let hasRenderedOnce = false;
   let renderSeq = 0;
+  // The seq check alone only catches a NEWER render superseding an older
+  // one — it does nothing when the SAME render's end() lands before its own
+  // delayed timer fires (the common case: an IndexedDB read finishes well
+  // under SKELETON_DELAY_MS). Without cancelling it, that timer still fires
+  // later and shows the skeleton over content that's already painted, with
+  // no later end() call left to hide it again.
+  let pendingTimer = null;
 
   function show() {
     if (!hostEl.childElementCount) {
@@ -296,7 +303,7 @@ export function skeletonGate(hostEl, rowCount = 5) {
     begin() {
       const seq = ++renderSeq;
       if (!hasRenderedOnce) {
-        setTimeout(() => {
+        pendingTimer = setTimeout(() => {
           if (seq === renderSeq) show();
         }, SKELETON_DELAY_MS);
       }
@@ -304,7 +311,10 @@ export function skeletonGate(hostEl, rowCount = 5) {
     },
     end(seq) {
       hasRenderedOnce = true;
-      if (seq === renderSeq) hostEl.hidden = true;
+      if (seq === renderSeq) {
+        clearTimeout(pendingTimer);
+        hostEl.hidden = true;
+      }
     },
   };
 }
