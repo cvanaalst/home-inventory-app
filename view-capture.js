@@ -241,6 +241,11 @@ export function initCaptureView({ onOpenContainer }) {
     containers = loadedContainers;
     locations = loadedLocations;
     refreshContainerSelect();
+    // Always land on "choose a container", not whatever was left selected
+    // from the last time this tab was open — refreshContainerSelect() on
+    // its own would otherwise restore it, since the <select> itself still
+    // holds that value from before.
+    containerSelect.value = "";
     closeNewContainerForm();
     await selectContainer(containerSelect.value);
   }

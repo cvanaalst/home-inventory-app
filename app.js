@@ -292,7 +292,7 @@ function initViews() {
   viewControllers["view-labels"] = initLabelsView();
   viewControllers["view-capture"] = initCaptureView({ onOpenContainer: openContainer });
   viewControllers["view-review"] = initReviewView({ onOpenContainer: openContainer, onOpenSettings: () => pushView("view-settings") });
-  viewControllers["view-detail"] = initDetailView({ onDeleted: () => history.back() });
+  viewControllers["view-detail"] = initDetailView({ onDeleted: () => history.back(), onOpenSettings: () => pushView("view-settings") });
   viewControllers["view-report"] = initReportView();
   viewControllers["view-help"] = initHelpView();
   viewControllers["view-settings"] = initSettingsView();

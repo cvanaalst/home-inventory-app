@@ -8,8 +8,9 @@ import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBa
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
 import { buildPrintReportHtml, formatFieldsSummary } from "./report.js";
+import { hasApiKey, identifyContainerPhotos } from "./ai.js";
 
-export function initDetailView({ onDeleted }) {
+export function initDetailView({ onDeleted, onOpenSettings }) {
   const codeEl = document.getElementById("detail-code");
   const badgeEl = document.getElementById("detail-status-badge");
   const notFoundEl = document.getElementById("detail-not-found");
@@ -38,6 +39,9 @@ export function initDetailView({ onDeleted }) {
   const photoInput = document.getElementById("detail-photo-input");
   const photoAddBtn = document.getElementById("detail-photo-add-btn");
   const photoAiToggle = document.getElementById("detail-photo-ai-toggle");
+  const identifyNoKeyEl = document.getElementById("detail-identify-no-key");
+  const identifySettingsBtn = document.getElementById("detail-identify-settings-btn");
+  const identifyBtn = document.getElementById("detail-identify-btn");
   const codeErrorEl = document.getElementById("detail-code-error");
   const copyBtn = document.getElementById("detail-copy-btn");
   const copyForm = document.getElementById("detail-copy-form");
@@ -144,12 +148,14 @@ export function initDetailView({ onDeleted }) {
     if (!removed) return;
     await patchContainer({ attachments: (container.attachments || []).filter((a) => a.mediaId !== mediaId) });
     await renderPhotos();
+    await renderIdentifyControls();
     toast(t("capture.photoRemoved"), "info", {
       actionLabel: t("toast.undo"),
       onExpire: () => deleteMedia(mediaId),
       onAction: async () => {
         await patchContainer({ attachments: [...(container.attachments || []), removed] });
         await renderPhotos();
+        await renderIdentifyControls();
       },
     });
   }
@@ -165,6 +171,28 @@ export function initDetailView({ onDeleted }) {
     } else {
       confirmBtn.hidden = true;
     }
+  }
+
+  // ---------- AI identification (single container, not the batch queue) ----------
+  //
+  // view-review.js owns the batch queue (select several containers, run
+  // them together); this is the same underlying identifyContainerPhotos
+  // call but scoped to whichever container is already open — no reason to
+  // leave this screen and find it again in a queue just to identify the
+  // photos already sitting right here.
+
+  async function renderIdentifyControls() {
+    const hasPhotos = (container.attachments || []).length > 0;
+    if (!hasPhotos) {
+      identifyNoKeyEl.hidden = true;
+      identifySettingsBtn.hidden = true;
+      identifyBtn.hidden = true;
+      return;
+    }
+    const keyConfigured = await hasApiKey();
+    identifyNoKeyEl.hidden = keyConfigured;
+    identifySettingsBtn.hidden = keyConfigured;
+    identifyBtn.hidden = !keyConfigured;
   }
 
   // Structured key/value specs (BLUEPRINT.md §5) — resistor value, voltage
@@ -496,8 +524,57 @@ export function initDetailView({ onDeleted }) {
       renderHeader();
       renderConfirmButton();
       await renderPhotos();
+      await renderIdentifyControls();
     } finally {
       photoAddBtn.disabled = false;
+    }
+  });
+
+  identifySettingsBtn.addEventListener("click", () => onOpenSettings?.());
+
+  identifyBtn.addEventListener("click", async () => {
+    identifyBtn.disabled = true;
+    const original = identifyBtn.textContent;
+    identifyBtn.textContent = t("review.identifying", { code: container.code });
+    try {
+      const photos = [];
+      for (const a of container.attachments || []) {
+        const rec = await getMedia(a.mediaId);
+        if (rec?.blob) photos.push({ blob: rec.blob, mimeType: rec.mimeType || a.mimeType || "image/jpeg" });
+      }
+      const result = await identifyContainerPhotos(photos);
+      if (result.outcome !== "success") {
+        toast(result.message || t("review.noApiKey"), "error");
+        return;
+      }
+      const drafts = result.items.map((d) =>
+        makeRecord({
+          type: "item",
+          title: d.title,
+          quantity: d.quantity,
+          category: d.category,
+          tags: d.tags,
+          state: "draft",
+          source: "ai",
+          linkedIds: [container.id],
+        }),
+      );
+      if (drafts.length) {
+        const saved = await putItems(drafts);
+        items = [...items, ...saved];
+      }
+      // Matches view-review.js's runContainer: a re-run appends rather
+      // than replaces — the notes are the user's, and an earlier AI pass
+      // (or their own notes) shouldn't be silently overwritten.
+      if (result.description) {
+        await patchContainer({ comment: container.comment ? `${container.comment}\n\n${result.description}` : result.description });
+        notesInput.value = container.comment;
+      }
+      await renderItems();
+      toast(tCount("review.batchDone", drafts.length), "info");
+    } finally {
+      identifyBtn.disabled = false;
+      identifyBtn.textContent = original;
     }
   });
 
@@ -713,6 +790,7 @@ export function initDetailView({ onDeleted }) {
     renderFields();
     await renderPhotos();
     await renderItems();
+    await renderIdentifyControls();
   }
 
   return { show };

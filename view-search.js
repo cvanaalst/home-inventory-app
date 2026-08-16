@@ -75,10 +75,14 @@ export function initSearchView({ onOpenContainer }) {
   // A tile carries both data-container-id (wireContainerRows) and
   // data-media-id (hydrateThumbnails) on the same element — the whole tile
   // is the click target, exactly like a normal row, and hydration doesn't
-  // care which attribute matched.
-  function photoTileHtml(c) {
-    const firstPhoto = c.attachments[0];
-    return `<button type="button" class="capture-photo-tile" data-container-id="${c.id}" data-media-id="${escapeHtml(firstPhoto.mediaId)}"><img alt="" /></button>`;
+  // care which attribute matched. One tile per PHOTO, not per container —
+  // a container with 5 photos is 5 tiles, all opening the same container;
+  // .flatMap keeps a container's own photos adjacent since `containers`
+  // is already sorted.
+  function photoTilesHtml(containers) {
+    return containers
+      .flatMap((c) => (c.attachments || []).map((a) => `<button type="button" class="capture-photo-tile" data-container-id="${c.id}" data-media-id="${escapeHtml(a.mediaId)}"><img alt="" /></button>`))
+      .join("");
   }
 
   /** Renders `containers` into `targetEl` as either the normal row list or,
@@ -89,7 +93,7 @@ export function initSearchView({ onOpenContainer }) {
     if (photoMode) {
       const withPhotos = containers.filter((c) => (c.attachments || []).length > 0);
       targetEl.innerHTML = withPhotos.length
-        ? `<div class="photo-search-grid">${withPhotos.map(photoTileHtml).join("")}</div>`
+        ? `<div class="photo-search-grid">${photoTilesHtml(withPhotos)}</div>`
         : `<p class="empty-state">${escapeHtml(t("search.noPhotos"))}</p>`;
     } else {
       targetEl.innerHTML = containers
