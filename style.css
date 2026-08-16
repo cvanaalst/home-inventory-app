@@ -873,7 +873,11 @@ textarea {
   gap: 6px;
 }
 
-.item-field-key {
+/* Doubled up as `.item-field-row .item-field-key` — the base
+   input[type="text"] rule (width: 100%) outweighs a single class on
+   specificity alone, so a lone `.item-field-key` selector loses and the
+   key input silently expands to fill the whole row. */
+.item-field-row .item-field-key {
   width: 100px;
   flex: 0 0 auto;
   min-height: 36px;
@@ -881,7 +885,7 @@ textarea {
   font-size: 13px;
 }
 
-.item-field-value {
+.item-field-row .item-field-value {
   min-height: 36px;
   padding: 6px 10px;
   font-size: 13px;

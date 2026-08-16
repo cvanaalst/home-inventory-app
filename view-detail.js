@@ -183,7 +183,7 @@ export function initDetailView({ onDeleted }) {
           </div>
           <div class="item-fields-panel" hidden style="margin-top: 8px">
             <div class="item-fields-list">${(item.fields || []).map(fieldRowHtml).join("")}</div>
-            <button type="button" class="btn btn-sm item-field-add-btn" data-i18n="item.addSpec"></button>
+            <button type="button" class="btn btn-sm item-field-add-btn">${escapeHtml(t("item.addSpec"))}</button>
           </div>
         </div>
       </div>`;
