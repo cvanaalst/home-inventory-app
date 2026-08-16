@@ -288,8 +288,6 @@ export const LABEL_FORMATS = [
   { id: "l7160", page: "a4", perSheet: 21 },
   { id: "l7163", page: "a4", perSheet: 14 },
   { id: "l7651", page: "a4", perSheet: 65 },
-  { id: "avery5160", page: "letter", perSheet: 30 },
-  { id: "avery5167", page: "letter", perSheet: 80 },
 ];
 
 /** One small cut-out card per container — code, name, location path.
@@ -303,8 +301,16 @@ export const LABEL_FORMATS = [
  * `fmt-<id>` class that style.css sizes to that sheet's real label
  * dimensions/pitch/margins — the dashed cut-line border is dropped for
  * those, since the label boundary is a physical sticker edge there, not
- * something to mark with ink. */
-export function buildLabelSheetHtml({ containers, locations, t, format = "generic" }) {
+ * something to mark with ink.
+ *
+ * `skipCount` leaves that many grid cells empty before the first real
+ * card — printing a fresh batch onto a sheet that already had some
+ * labels peeled off earlier lands the new ones starting right after
+ * whatever's already gone, instead of overprinting positions 1..n again.
+ * Blank cells are plain empty divs (no border, no content) — the grid's
+ * own column count does the row-wrapping, so this works the same way
+ * for every format including generic. */
+export function buildLabelSheetHtml({ containers, locations, t, format = "generic", skipCount = 0 }) {
   const locationsById = new Map(locations.map((l) => [l.id, l]));
   const sorted = [...containers].filter((c) => !c.deletedAt).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: "base" }));
 
@@ -320,6 +326,9 @@ export function buildLabelSheetHtml({ containers, locations, t, format = "generi
     })
     .join("");
 
+  const clampedSkip = Math.max(0, Math.floor(skipCount) || 0);
+  const blanks = cards && clampedSkip ? `<div class="label-blank"></div>`.repeat(clampedSkip) : "";
+
   const formatClass = format && format !== "generic" ? ` fmt-${format}` : "";
-  return `<div class="label-sheet${formatClass}">${cards || `<p>${escapeHtml(t("report.print.empty"))}</p>`}</div>`;
+  return `<div class="label-sheet${formatClass}">${cards ? blanks + cards : `<p>${escapeHtml(t("report.print.empty"))}</p>`}</div>`;
 }

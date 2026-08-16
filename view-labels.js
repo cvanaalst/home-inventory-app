@@ -34,6 +34,7 @@ export function initLabelsView() {
   const selectAllCheckbox = document.getElementById("labels-select-all");
   const listEl = document.getElementById("labels-list");
   const formatSelect = document.getElementById("labels-format-select");
+  const skipInput = document.getElementById("labels-skip-input");
   const printBtn = document.getElementById("labels-print-btn");
 
   let containers = [];
@@ -90,7 +91,8 @@ export function initLabelsView() {
     const format = formatSelect.value;
     const formatEntry = LABEL_FORMATS.find((f) => f.id === format);
     setPrintPageSize(formatEntry?.page ? formatEntry.page : null);
-    const html = buildLabelSheetHtml({ containers: chosen, locations, t, format });
+    const skipCount = Math.max(0, Math.floor(Number(skipInput.value)) || 0);
+    const html = buildLabelSheetHtml({ containers: chosen, locations, t, format, skipCount });
     document.getElementById("print-root").innerHTML = html;
     window.print();
   });
@@ -104,6 +106,10 @@ export function initLabelsView() {
     containers = loadedContainers;
     locations = loadedLocations;
     formatSelect.value = LABEL_FORMATS.some((f) => f.id === savedFormat) ? savedFormat : "generic";
+    // Not persisted like the format choice — how many labels are already
+    // gone from THIS particular sheet changes every time, so it's always
+    // re-entered fresh rather than carried over from a previous visit.
+    skipInput.value = "0";
     selected.clear();
     containers.forEach((c) => selected.add(c.id));
     render();

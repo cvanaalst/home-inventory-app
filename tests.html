@@ -603,8 +603,22 @@ section("buildLabelSheetHtml");
   assertTrue(!genericHtml.includes("fmt-"), "an explicit format:\"generic\" is the same as omitting it — still no fmt-* class");
   const l7160Html = report.buildLabelSheetHtml({ containers, locations: [], t, format: "l7160" });
   assertTrue(l7160Html.includes('class="label-sheet fmt-l7160"'), "a real sheet format adds its fmt-<id> class so style.css can size the grid to that sheet's exact label dimensions");
-  assertEqual(report.LABEL_FORMATS.find((f) => f.id === "l7160").page, "a4", "the L7160 registry entry is flagged for an A4 print page, not Letter — printing it on the wrong page size would misalign every label, not just look odd");
-  assertEqual(report.LABEL_FORMATS.find((f) => f.id === "avery5160").page, "letter", "the US Avery formats are flagged for Letter, not A4");
+  assertEqual(report.LABEL_FORMATS.find((f) => f.id === "l7160").page, "a4", "the L7160 registry entry is flagged for an A4 print page — printing it on the wrong page size would misalign every label, not just look odd");
+  assertEqual(report.LABEL_FORMATS.map((f) => f.id), ["generic", "l7160", "l7163", "l7651"], "only A4 formats are offered — no Letter formats to pick from");
+}
+{
+  const t = (key) => key;
+  const containers = [{ id: "c1", type: "container", code: "BOX-001", linkedIds: [] }];
+  const noSkipHtml = report.buildLabelSheetHtml({ containers, locations: [], t });
+  assertTrue(!noSkipHtml.includes("label-blank"), "skipCount defaults to 0 — no blank cells at all");
+  const skippedHtml = report.buildLabelSheetHtml({ containers, locations: [], t, skipCount: 3 });
+  const blankCount = (skippedHtml.match(/label-blank/g) || []).length;
+  assertEqual(blankCount, 3, "skipCount:3 renders exactly 3 blank grid cells");
+  assertTrue(skippedHtml.indexOf("label-blank") < skippedHtml.indexOf("BOX-001"), "blank cells come before the real cards, so the grid's own column wrapping lands the real cards after the already-used positions");
+  const negativeHtml = report.buildLabelSheetHtml({ containers, locations: [], t, skipCount: -5 });
+  assertTrue(!negativeHtml.includes("label-blank"), "a negative skipCount clamps to 0 rather than throwing or producing a negative repeat count");
+  const emptySkipHtml = report.buildLabelSheetHtml({ containers: [], locations: [], t, skipCount: 4 });
+  assertTrue(!emptySkipHtml.includes("label-blank"), "skipCount is ignored when there's nothing to print — blank cells with no real labels after them would be pointless");
 }
 
 section("formatHistoryValue");
