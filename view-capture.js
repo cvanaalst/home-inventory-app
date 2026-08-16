@@ -34,6 +34,11 @@ export function initCaptureView({ onOpenContainer }) {
   // mediaId -> object URL, so a photo's blob is only fetched/decoded once
   // per view visit rather than on every render.
   const blobUrls = new Map();
+  // Raw media ids the share_target service-worker handler already stored
+  // (sw.js's storeSharedFiles) — set by attachSharedMedia() below, and
+  // consumed the moment a container is selected, since sharing always
+  // lands here with no container chosen yet.
+  let pendingSharedMediaIds = [];
 
   function revokeAllUrls() {
     for (const url of blobUrls.values()) URL.revokeObjectURL(url);
@@ -69,6 +74,40 @@ export function initCaptureView({ onOpenContainer }) {
     }
     photoLabel.textContent = containerLabel(container);
     await renderPhotoGrid();
+    await consumePendingSharedMedia();
+  }
+
+  /** Turns whatever attachSharedMedia() queued into real attachments, the
+   * moment a container becomes selected (share_target always lands here
+   * with none chosen yet, so this fires either right after the user picks
+   * an existing one or right after createBtn's handler selects a
+   * brand-new one). The shared blobs sw.js stored are raw/unresized — run
+   * through resizeImageToBlob here exactly like a normal file-input pick,
+   * so a shared photo isn't a special case anywhere past this point. */
+  async function consumePendingSharedMedia() {
+    if (!container || pendingSharedMediaIds.length === 0) return;
+    const rawIds = pendingSharedMediaIds;
+    pendingSharedMediaIds = [];
+    addBtn.disabled = true;
+    try {
+      const newAttachments = [];
+      for (const rawId of rawIds) {
+        const rec = await getMedia(rawId);
+        if (!rec?.blob) continue;
+        const { blob, width, height } = await resizeImageToBlob(rec.blob);
+        const mediaId = makeId();
+        await putMedia({ id: mediaId, blob, mimeType: "image/jpeg" });
+        await deleteMedia(rawId);
+        newAttachments.push({ mediaId, filename: "", mimeType: "image/jpeg", size: blob.size, width, height });
+      }
+      if (newAttachments.length) {
+        container = { ...container, attachments: [...(container.attachments || []), ...newAttachments] };
+        container = await putItem(container);
+        await renderPhotoGrid();
+      }
+    } finally {
+      addBtn.disabled = false;
+    }
   }
 
   async function urlFor(mediaId) {
@@ -206,5 +245,15 @@ export function initCaptureView({ onOpenContainer }) {
     await selectContainer(containerSelect.value);
   }
 
-  return { show };
+  /** Called by app.js right after show(), when boot() detects a
+   * share_target redirect (#shared-photos) with pending media ids. Queues
+   * them; consumePendingSharedMedia() picks them up the moment a
+   * container is selected — never immediately here, since a share always
+   * arrives with none chosen yet. */
+  function attachSharedMedia(mediaIds) {
+    pendingSharedMediaIds = [...pendingSharedMediaIds, ...mediaIds];
+    consumePendingSharedMedia();
+  }
+
+  return { show, attachSharedMedia };
 }

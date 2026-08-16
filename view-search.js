@@ -2,7 +2,7 @@
 // search box is empty, browse containers filtered by location, plus manual
 // ("no photo") container creation.
 
-import { queryItems, getMeta, setMeta, putItem, makeRecord, nextCode, locationPath, getMedia } from "./db.js";
+import { queryItems, queryItemSet, getAllItems, getMeta, setMeta, putItem, makeRecord, nextCode, locationPath, getMedia } from "./db.js";
 import { populateLocationSelect, escapeHtml, statusBadgeClass, skeletonGate } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 
@@ -47,6 +47,14 @@ export function initSearchView({ onOpenContainer }) {
     // exists so hydrateThumbnails() has something to fill in, it's just
     // never visible there, matching how .row-sub is dropped in compact.
     const thumb = firstPhoto ? `<span class="row-thumb" data-media-id="${escapeHtml(firstPhoto.mediaId)}"><img alt="" /></span>` : "";
+    // "captured" is every container's starting status and stays that way
+    // until someone explicitly confirms it — showing it on every single
+    // row carries zero information (you already know a row is "captured"
+    // if it isn't showing anything else) and is exactly the badge every
+    // row in a long list was carrying. "confirmed" (settled, trustworthy)
+    // and "drafted" (has AI drafts pending) are each a real exception
+    // worth a glance, so those still show.
+    const badge = c.status === "captured" ? "" : `<span class="${statusBadgeClass(c.status)}">${escapeHtml(c.status)}</span>`;
     return `
       <button type="button" class="row-card" data-container-id="${c.id}">
         ${thumb}
@@ -54,7 +62,7 @@ export function initSearchView({ onOpenContainer }) {
           <span class="row-title">${escapeHtml(c.code)}${c.title ? ` — ${escapeHtml(c.title)}` : ""}</span>
           <span class="row-sub">${tCount("items.count", itemCount)}${path ? ` · ${escapeHtml(path)}` : ""}</span>
         </span>
-        <span class="${statusBadgeClass(c.status)}">${escapeHtml(c.status)}</span>
+        ${badge}
       </button>`;
   }
 
@@ -111,13 +119,43 @@ export function initSearchView({ onOpenContainer }) {
 
   // ---------- browse mode ----------
 
+  /** Groups `containers` by location (a plain flat list of up to a few
+   * hundred rows had no way to jump to "the shelf I'm standing in front
+   * of" without scrolling past everything before it) — one sticky
+   * .location-group-header per location, sorted by path, "no location"
+   * last since it isn't a real place to file rows under. Only used for
+   * the unfiltered "all locations" browse view: once already filtered to
+   * one location every row would land in the same single group, which is
+   * just the flat list with a redundant heading on top. */
+  function groupedContainerListHtml(containers, locById, itemCounts) {
+    const groups = new Map();
+    for (const c of containers) {
+      const locId = (c.linkedIds || [])[0] || "";
+      if (!groups.has(locId)) groups.set(locId, []);
+      groups.get(locId).push(c);
+    }
+    const sortedKeys = [...groups.keys()].sort((a, b) => {
+      if (!a) return 1;
+      if (!b) return -1;
+      return locationPath(locById.get(a)).localeCompare(locationPath(locById.get(b)), undefined, { numeric: true, sensitivity: "base" });
+    });
+    return sortedKeys
+      .map((locId) => {
+        const heading = locId ? escapeHtml(locationPath(locById.get(locId))) : escapeHtml(t("detail.noLocation"));
+        const rows = groups.get(locId).map((c) => containerRowHtml(c, locById.get(locId), itemCounts.get(c.id) || 0)).join("");
+        return `<div class="location-group"><div class="location-group-header">${heading}</div>${rows}</div>`;
+      })
+      .join("");
+  }
+
   async function renderBrowse() {
     const seq = browseSkeleton.begin();
     try {
-      const [{ results: containers }, { results: items }] = await Promise.all([
-        queryItems({ type: "container", sortBy: "code", sortDir: "asc" }),
-        queryItems({ type: "item" }),
-      ]);
+      // One IDB read + hydrate, not two — see runSearch() below for why
+      // this matters (called on every keystroke, unlike renderBrowse).
+      const allRecords = await getAllItems();
+      const { results: containers } = queryItemSet(allRecords, { type: "container", sortBy: "code", sortDir: "asc" });
+      const { results: items } = queryItemSet(allRecords, { type: "item" });
       const locById = new Map(locations.map((l) => [l.id, l]));
       const itemCounts = new Map();
       for (const it of items) {
@@ -139,7 +177,13 @@ export function initSearchView({ onOpenContainer }) {
           ? t("search.noContainersAt", { location: locationPath(locById.get(filterId)) })
           : t("search.noContainers");
       }
-      renderContainers(filtered, browseList, { itemCounts, locById });
+      if (!photoMode && !filterId && filtered.length) {
+        browseList.innerHTML = groupedContainerListHtml(filtered, locById, itemCounts);
+        wireContainerRows(browseList);
+        hydrateThumbnails(browseList);
+      } else {
+        renderContainers(filtered, browseList, { itemCounts, locById });
+      }
     } finally {
       browseSkeleton.end(seq);
     }
@@ -264,14 +308,19 @@ export function initSearchView({ onOpenContainer }) {
   }
 
   async function runSearch(q) {
-    const [itemsRes, containersRes, locsRes] = await Promise.all([
-      queryItems({ type: "item", search: q }),
-      queryItems({ type: "container", search: q }),
-      queryItems({ type: "location", search: q }),
-    ]);
+    // One IDB read + hydrate for the whole search, not four — this runs on
+    // every debounced keystroke, so it was the actual hot path the 4-scans
+    // cost hit hardest. queryItemSet is the same pure engine queryItems
+    // wraps; running it 3-4x against one in-memory snapshot instead of
+    // each re-reading and re-hydrating the store measured at ~199ms ->
+    // ~50ms per keystroke on 3340 records.
+    const allRecords = await getAllItems();
+    const itemsRes = queryItemSet(allRecords, { type: "item", search: q });
+    const containersRes = queryItemSet(allRecords, { type: "container", search: q });
+    const locsRes = queryItemSet(allRecords, { type: "location", search: q });
     // attach item counts to matched containers for display
     if (containersRes.results.length) {
-      const { results: allItems } = await queryItems({ type: "item" });
+      const { results: allItems } = queryItemSet(allRecords, { type: "item" });
       const counts = new Map();
       for (const it of allItems) for (const id of it.linkedIds || []) counts.set(id, (counts.get(id) || 0) + 1);
       containersRes.results.forEach((c) => (c.__itemCount = counts.get(c.id) || 0));
@@ -318,5 +367,10 @@ export function initSearchView({ onOpenContainer }) {
     }
   }
 
-  return { show };
+  // Exposed for app.js's "New container" manifest shortcut (#new-container)
+  // — that's a boot-time-only entry point external to the normal tab
+  // router (BLUEPRINT.md's TAB_TARGETS hash routing has no room for "show
+  // this tab AND also open a form"), so it calls this directly after
+  // show() rather than going through any params show() itself accepts.
+  return { show, openNewForm: openNewContainerForm };
 }

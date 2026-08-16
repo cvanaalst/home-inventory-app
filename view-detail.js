@@ -3,7 +3,7 @@
 // the location select is write-through, text fields are save-gated on
 // blur, item quantity is write-through, item text fields are save-gated.
 
-import { queryItems, getItem, putItem, putItems, putMedia, cloneMedia, deleteMedia, makeRecord, makeId, getMedia, normalizeCode, nextCode } from "./db.js";
+import { queryItemSet, getAllItems, getItem, putItem, putItems, putMedia, cloneMedia, deleteMedia, makeRecord, makeId, getMedia, normalizeCode, nextCode } from "./db.js";
 import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox, resizeImageToBlob } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
@@ -88,14 +88,13 @@ export function initDetailView({ onDeleted }) {
     notFoundEl.hidden = true;
     contentEl.hidden = false;
 
-    const [{ results: locs }, { results: allContainers }, { results: itemResults }] = await Promise.all([
-      queryItems({ type: "location" }),
-      queryItems({ type: "container" }),
-      queryItems({ type: "item", linkedId: containerId, sortBy: "createdAt", sortDir: "asc" }),
-    ]);
-    locations = locs;
-    containers = allContainers;
-    items = itemResults;
+    // One IDB read + hydrate for the whole reload — this runs on every
+    // single container open, so it's the highest-frequency call site in
+    // the app for this cost.
+    const allRecords = await getAllItems();
+    locations = queryItemSet(allRecords, { type: "location" }).results;
+    containers = queryItemSet(allRecords, { type: "container" }).results;
+    items = queryItemSet(allRecords, { type: "item", linkedId: containerId, sortBy: "createdAt", sortDir: "asc" }).results;
     return true;
   }
 

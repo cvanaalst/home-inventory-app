@@ -387,6 +387,41 @@ function offerUpdate(worker) {
   });
 }
 
+// ---------- special entry points (manifest shortcuts, share_target) ----------
+//
+// Neither of these is a plain tab hash — both need to land on a specific
+// tab AND trigger something the normal TAB_TARGETS hash routing has no
+// room for ("show this tab, then also open a form" / "...then also
+// attach these photos"). Handled once, at boot, only: nothing inside the
+// app ever navigates to either hash itself — they only ever arrive from
+// outside (the OS long-press shortcut menu, the share sheet).
+
+async function routeSpecialEntry() {
+  if (location.hash === "#new-container") {
+    showView("view-search");
+    setActiveTab("view-search");
+    history.replaceState({ tab: "view-search" }, "", "#view-search");
+    await viewControllers["view-search"]?.show({});
+    viewControllers["view-search"]?.openNewForm?.();
+    return true;
+  }
+  if (location.hash === "#shared-photos") {
+    // sw.js's share_target handler already stored the shared blobs and
+    // redirected here — this just hands their ids to Capture. Consumed
+    // immediately (set back to []) so a later reload of this same URL
+    // (e.g. the user refreshes) can't re-attach the same photos twice.
+    const mediaIds = await getMeta("pendingShareMediaIds", []);
+    await setMeta("pendingShareMediaIds", []);
+    showView("view-capture");
+    setActiveTab("view-capture");
+    history.replaceState({ tab: "view-capture" }, "", "#view-capture");
+    await viewControllers["view-capture"]?.show({});
+    if (mediaIds.length) viewControllers["view-capture"]?.attachSharedMedia?.(mediaIds);
+    return true;
+  }
+  return false;
+}
+
 // ---------- boot ----------
 
 async function boot() {
@@ -414,13 +449,15 @@ async function boot() {
     console.error("OAuth redirect could not be processed:", err);
   }
 
-  const initial = TAB_TARGETS.includes(location.hash.slice(1))
-    ? location.hash.slice(1)
-    : DEFAULT_TAB;
-  showView(initial);
-  setActiveTab(initial);
-  history.replaceState({ tab: initial }, "", `#${initial}`);
-  viewControllers[initial]?.show({});
+  if (!(await routeSpecialEntry())) {
+    const initial = TAB_TARGETS.includes(location.hash.slice(1))
+      ? location.hash.slice(1)
+      : DEFAULT_TAB;
+    showView(initial);
+    setActiveTab(initial);
+    history.replaceState({ tab: initial }, "", `#${initial}`);
+    viewControllers[initial]?.show({});
+  }
   updateAppBadge();
 
   // Correct language/theme/density once the stored preference has loaded.
