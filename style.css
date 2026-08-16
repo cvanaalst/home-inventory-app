@@ -1516,10 +1516,11 @@ textarea {
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--tag-bg);
-  /* Reset button defaults — view-detail.js's read-only tiles are <button>s
-     (open the lightbox on click) while view-capture.js's editable ones stay
-     plain <div>s (their own remove button is the clickable part); these
-     resets are no-ops on a div, so one rule serves both. */
+  /* Reset button defaults — a search-grid tile is a <button> (opens the
+     container on click) while view-capture.js's and view-detail.js's
+     editable tiles are plain <div>s (an inner element handles each click:
+     the image for view-detail's lightbox, .capture-photo-remove for
+     delete); these resets are no-ops on a div, so one rule serves all. */
   border: none;
   padding: 0;
   cursor: pointer;
@@ -1545,6 +1546,24 @@ textarea {
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
+}
+
+/* Search tab's photo-only view: thumbnails alone, no title/code/status
+   text — 90px tiles land on 3-4 per row at typical phone content widths
+   without pinning an exact column count that would break on other sizes. */
+.photo-search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.search-photo-toggle {
+  flex-shrink: 0;
+}
+
+.search-photo-toggle.active {
+  color: var(--accent);
+  background: var(--tag-bg);
 }
 
 .review-queue-row {

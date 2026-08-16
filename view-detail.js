@@ -3,7 +3,7 @@
 // the location select is write-through, text fields are save-gated on
 // blur, item quantity is write-through, item text fields are save-gated.
 
-import { queryItems, getItem, putItem, putItems, putMedia, cloneMedia, makeRecord, makeId, getMedia, normalizeCode, nextCode } from "./db.js";
+import { queryItems, getItem, putItem, putItems, putMedia, cloneMedia, deleteMedia, makeRecord, makeId, getMedia, normalizeCode, nextCode } from "./db.js";
 import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox, resizeImageToBlob } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
@@ -111,15 +111,22 @@ export function initDetailView({ onDeleted }) {
     populateLocationSelect(locationSelect, locations, (container.linkedIds || [])[0], { noneLabel: t("detail.noLocation") });
   }
 
-  /** Read-only thumbnail grid of the container's photos — tapping one opens
-   * it full-size via openLightbox(). Unlike view-capture.js's grid, there's
-   * no remove button here; deleting a photo isn't this view's job. */
+  /** Thumbnail grid of the container's photos — tapping the image opens it
+   * full-size via openLightbox(); the × removes it. Deletion is Drive-safe
+   * by construction, not by any explicit API call here: removing the
+   * attachment locally is enough — the next sync's computeMediaActions
+   * (merge.js) already treats "no live record references this mediaId
+   * anymore" as the signal to delete the file on Drive too, the same way
+   * every other delete in this app is a local tombstone the next sync
+   * reconciles, never a synchronous network call at click-time. */
   async function renderPhotos() {
     for (const url of photoUrls) URL.revokeObjectURL(url);
     photoUrls.clear();
     const attachments = container.attachments || [];
     photoGrid.hidden = attachments.length === 0;
-    photoGrid.innerHTML = attachments.map((a) => `<button type="button" class="capture-photo-tile" data-media-id="${escapeHtml(a.mediaId)}"><img alt="" /></button>`).join("");
+    photoGrid.innerHTML = attachments
+      .map((a) => `<div class="capture-photo-tile" data-media-id="${escapeHtml(a.mediaId)}"><img alt="" /><button type="button" class="capture-photo-remove" aria-label="${escapeHtml(t("action.delete"))}">${icon("close", { size: 14 })}</button></div>`)
+      .join("");
     for (const a of attachments) {
       const rec = await getMedia(a.mediaId);
       if (!rec || !rec.blob) continue;
@@ -128,8 +135,24 @@ export function initDetailView({ onDeleted }) {
       const tile = photoGrid.querySelector(`[data-media-id="${CSS.escape(a.mediaId)}"]`);
       if (!tile) continue;
       tile.querySelector("img").src = url;
-      tile.addEventListener("click", () => openLightbox(url));
+      tile.querySelector("img").addEventListener("click", () => openLightbox(url));
+      tile.querySelector(".capture-photo-remove").addEventListener("click", () => removePhoto(a.mediaId));
     }
+  }
+
+  async function removePhoto(mediaId) {
+    const removed = (container.attachments || []).find((a) => a.mediaId === mediaId);
+    if (!removed) return;
+    await patchContainer({ attachments: (container.attachments || []).filter((a) => a.mediaId !== mediaId) });
+    await renderPhotos();
+    toast(t("capture.photoRemoved"), "info", {
+      actionLabel: t("toast.undo"),
+      onExpire: () => deleteMedia(mediaId),
+      onAction: async () => {
+        await patchContainer({ attachments: [...(container.attachments || []), removed] });
+        await renderPhotos();
+      },
+    });
   }
 
   function renderConfirmButton() {

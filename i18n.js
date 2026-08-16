@@ -102,6 +102,8 @@ const dict = {
     "action.move": "Verplaatsen",
 
     "search.placeholder": "Zoek items, containers, locaties…",
+    "search.photoToggle": "Fotoweergave",
+    "search.noPhotos": "Geen containers met foto's.",
     "search.newContainer": "＋ Nieuwe container (zonder foto)",
     "search.locationFilterAll": "Alle locaties",
     "search.browseAll": "Alle containers",
@@ -414,6 +416,8 @@ const dict = {
     "action.move": "Move",
 
     "search.placeholder": "Search items, containers, locations…",
+    "search.photoToggle": "Photo view",
+    "search.noPhotos": "No containers with photos.",
     "search.newContainer": "＋ New container (no photo)",
     "search.locationFilterAll": "All locations",
     "search.browseAll": "All containers",

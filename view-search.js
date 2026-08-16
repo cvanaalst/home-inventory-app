@@ -10,6 +10,7 @@ const DEBOUNCE_MS = 250;
 
 export function initSearchView({ onOpenContainer }) {
   const input = document.getElementById("search-input");
+  const photoToggle = document.getElementById("search-photo-toggle");
   const resultsEl = document.getElementById("search-results");
   const browseEl = document.getElementById("search-browse");
   const locationFilter = document.getElementById("search-location-filter");
@@ -33,6 +34,11 @@ export function initSearchView({ onOpenContainer }) {
   // long browsing session doesn't accumulate one blob URL per container ever
   // shown — see hydrateThumbnails().
   const thumbUrls = new Set();
+  // Session-only, not persisted (BLUEPRINT.md doesn't call for it, and a
+  // toggle that silently changed a returning visit's default view would be
+  // more surprising than helpful) — resets to the normal list every time
+  // the tab is reopened.
+  let photoMode = false;
 
   function containerRowHtml(c, loc, itemCount) {
     const path = loc ? locationPath(loc) : "";
@@ -56,6 +62,34 @@ export function initSearchView({ onOpenContainer }) {
     root.querySelectorAll("[data-container-id]").forEach((el) => {
       el.addEventListener("click", () => onOpenContainer(el.getAttribute("data-container-id")));
     });
+  }
+
+  // A tile carries both data-container-id (wireContainerRows) and
+  // data-media-id (hydrateThumbnails) on the same element — the whole tile
+  // is the click target, exactly like a normal row, and hydration doesn't
+  // care which attribute matched.
+  function photoTileHtml(c) {
+    const firstPhoto = c.attachments[0];
+    return `<button type="button" class="capture-photo-tile" data-container-id="${c.id}" data-media-id="${escapeHtml(firstPhoto.mediaId)}"><img alt="" /></button>`;
+  }
+
+  /** Renders `containers` into `targetEl` as either the normal row list or,
+   * in photo mode, a thumbnail-only grid of just the ones with a photo —
+   * the one branch point renderBrowse() and renderSearchResults() both
+   * call through, so the two entry points can't drift out of sync. */
+  function renderContainers(containers, targetEl, { itemCounts, locById } = {}) {
+    if (photoMode) {
+      const withPhotos = containers.filter((c) => (c.attachments || []).length > 0);
+      targetEl.innerHTML = withPhotos.length
+        ? `<div class="photo-search-grid">${withPhotos.map(photoTileHtml).join("")}</div>`
+        : `<p class="empty-state">${escapeHtml(t("search.noPhotos"))}</p>`;
+    } else {
+      targetEl.innerHTML = containers
+        .map((c) => containerRowHtml(c, locById?.get((c.linkedIds || [])[0]), itemCounts?.get(c.id) ?? c.__itemCount ?? 0))
+        .join("");
+    }
+    wireContainerRows(targetEl);
+    hydrateThumbnails(targetEl);
   }
 
   /** Fills every .row-thumb img left empty by containerRowHtml. Async and
@@ -94,16 +128,18 @@ export function initSearchView({ onOpenContainer }) {
       const filtered = filterId ? containers.filter((c) => (c.linkedIds || []).includes(filterId)) : containers;
 
       browseLabel.textContent = filterId ? t("search.browseAt", { location: locationPath(locById.get(filterId)) }) : t("search.browseAll");
-      browseEmpty.hidden = filtered.length > 0;
-      // Filter-aware: "no containers at all" reads very differently from
-      // "none at this particular location" — the latter would otherwise
-      // wrongly imply the whole inventory is empty when it isn't.
-      browseEmpty.textContent = filterId
-        ? t("search.noContainersAt", { location: locationPath(locById.get(filterId)) })
-        : t("search.noContainers");
-      browseList.innerHTML = filtered.map((c) => containerRowHtml(c, locById.get((c.linkedIds || [])[0]), itemCounts.get(c.id) || 0)).join("");
-      wireContainerRows(browseList);
-      hydrateThumbnails(browseList);
+      if (photoMode) {
+        browseEmpty.hidden = true; // renderContainers renders its own "no photos" empty state inline
+      } else {
+        browseEmpty.hidden = filtered.length > 0;
+        // Filter-aware: "no containers at all" reads very differently from
+        // "none at this particular location" — the latter would otherwise
+        // wrongly imply the whole inventory is empty when it isn't.
+        browseEmpty.textContent = filterId
+          ? t("search.noContainersAt", { location: locationPath(locById.get(filterId)) })
+          : t("search.noContainers");
+      }
+      renderContainers(filtered, browseList, { itemCounts, locById });
     } finally {
       browseSkeleton.end(seq);
     }
@@ -183,6 +219,15 @@ export function initSearchView({ onOpenContainer }) {
   // ---------- search mode ----------
 
   function renderSearchResults(items, containers, locs) {
+    // Photo mode collapses the whole items/containers/locations breakdown
+    // into one thumbnail grid of just the matched containers that have a
+    // photo — items and locations aren't photo-representable, and mixing
+    // "text results" with "photo results" in the same screen would defeat
+    // the point of a quick visual scan.
+    if (photoMode) {
+      renderContainers(containers, resultsEl);
+      return;
+    }
     const locById = new Map(locations.map((l) => [l.id, l]));
     const containerById = new Map(containers.concat().map((c) => [c.id, c]));
     // include every container referenced by a matched item, for its code/name
@@ -247,6 +292,15 @@ export function initSearchView({ onOpenContainer }) {
       browseEl.hidden = true;
       await runSearch(q);
     }, DEBOUNCE_MS);
+  });
+
+  photoToggle.addEventListener("click", async () => {
+    photoMode = !photoMode;
+    photoToggle.classList.toggle("active", photoMode);
+    photoToggle.setAttribute("aria-pressed", String(photoMode));
+    const q = input.value.trim();
+    if (q) await runSearch(q);
+    else await renderBrowse();
   });
 
   async function show() {
