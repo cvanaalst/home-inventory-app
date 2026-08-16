@@ -928,6 +928,39 @@ textarea {
   gap: 8px;
 }
 
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+}
+
+.lightbox-close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
 /* ============================================================
    Insights: stat tiles, category bars, activity chart, tag cloud
    ============================================================ */
@@ -1334,6 +1367,13 @@ textarea {
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--tag-bg);
+  /* Reset button defaults — view-detail.js's read-only tiles are <button>s
+     (open the lightbox on click) while view-capture.js's editable ones stay
+     plain <div>s (their own remove button is the clickable part); these
+     resets are no-ops on a div, so one rule serves both. */
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .capture-photo-tile img {

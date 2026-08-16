@@ -20,6 +20,9 @@ const PROMPT_OVERHEAD_TOKENS = 250;
 // a batch run — not a promise about what the model will actually return.
 const OUTPUT_TOKENS_PER_ITEM = 60;
 const OUTPUT_OVERHEAD_TOKENS = 40;
+// A 250-char description costs roughly this many output tokens (English
+// prose runs ~4 chars/token); folded into the cost preview alongside items.
+const DESCRIPTION_TOKENS_ESTIMATE = 70;
 const DEFAULT_ITEM_ESTIMATE = 6;
 
 // Per-million-token list prices for claude-haiku-4-5 (input, output), in USD.
@@ -30,6 +33,7 @@ const TITLE_MAX = 100;
 const CATEGORY_MAX = 30;
 const TAGS_MAX = 10;
 const TAG_MAX = 30;
+const DESCRIPTION_MAX = 250;
 
 /** Downsizes (width, height) to the model's effective resolution ceiling,
  * preserving aspect ratio. Pixel counts at or under the ceiling pass through
@@ -59,7 +63,9 @@ function buildPrompt(photoCount) {
     "You catalog the contents of storage containers (boxes, bins, shelves) from photos for a home inventory app. " +
     "List each distinct physical item you can identify. Group identical items together with a quantity rather than " +
     "listing duplicates separately. Skip anything you cannot identify with reasonable confidence — it is better to " +
-    "omit an item than to guess. Do not include the container itself, packaging, or the surface it sits on as items.";
+    "omit an item than to guess. Do not include the container itself, packaging, or the surface it sits on as items. " +
+    "Also write a short description of the container's contents as a whole, at most 250 characters — one or two " +
+    "plain sentences a person could read as a quick note, not a restatement of the item list.";
   const instructions =
     n > 1
       ? `These ${n} photos show the same container from different angles or at different times. Combine what you see across all of them into one item list — do not report the same physical item twice just because it appears in more than one photo.`
@@ -74,6 +80,7 @@ function draftOutputSchema() {
   return {
     type: "object",
     properties: {
+      description: { type: "string" },
       items: {
         type: "array",
         items: {
@@ -89,7 +96,7 @@ function draftOutputSchema() {
         },
       },
     },
-    required: ["items"],
+    required: ["items", "description"],
     additionalProperties: false,
   };
 }
@@ -119,32 +126,37 @@ function sanitizeTags(raw) {
   return out;
 }
 
-/** Parses the model's structured-output JSON text into a sanitized draft-item
- * list. Defensive even though output_config.format constrains the shape —
- * a malformed or truncated response must degrade to an empty list, never
- * throw partway through a batch run. */
+function sanitizeDescription(raw) {
+  return typeof raw === "string" ? raw.trim().slice(0, DESCRIPTION_MAX) : "";
+}
+
+/** Parses the model's structured-output JSON text into a sanitized
+ * { items, description }. Defensive even though output_config.format
+ * constrains the shape — a malformed or truncated response must degrade to
+ * an empty result, never throw partway through a batch run. */
 function parseDraft(rawText) {
   let parsed;
   try {
     parsed = JSON.parse(rawText);
   } catch {
-    return [];
+    return { items: [], description: "" };
   }
-  const items = parsed && Array.isArray(parsed.items) ? parsed.items : [];
-  const out = [];
-  for (const raw of items) {
+  const rawItems = parsed && Array.isArray(parsed.items) ? parsed.items : [];
+  const items = [];
+  for (const raw of rawItems) {
     if (!raw || typeof raw !== "object") continue;
     const title = sanitizeTitle(raw.title);
     if (!title) continue;
-    out.push({
+    items.push({
       title,
       quantity: sanitizeQuantity(raw.quantity),
       category: sanitizeCategory(raw.category),
       tags: sanitizeTags(raw.tags),
     });
-    if (out.length >= ITEM_CAP) break;
+    if (items.length >= ITEM_CAP) break;
   }
-  return out;
+  const description = sanitizeDescription(parsed && parsed.description);
+  return { items, description };
 }
 
 /** Cost/token estimate for identifying one container from its photos.
@@ -154,7 +166,7 @@ function estimateContainerCost(photos) {
   const list = Array.isArray(photos) ? photos : [];
   const imageTokens = list.reduce((sum, p) => sum + estimateImageTokens(p && p.width, p && p.height), 0);
   const inputTokens = imageTokens + PROMPT_OVERHEAD_TOKENS;
-  const outputTokens = OUTPUT_TOKENS_PER_ITEM * DEFAULT_ITEM_ESTIMATE + OUTPUT_OVERHEAD_TOKENS;
+  const outputTokens = OUTPUT_TOKENS_PER_ITEM * DEFAULT_ITEM_ESTIMATE + OUTPUT_OVERHEAD_TOKENS + DESCRIPTION_TOKENS_ESTIMATE;
   const usd = (inputTokens * PRICE_PER_MTOK.input + outputTokens * PRICE_PER_MTOK.output) / 1_000_000;
   return { inputTokens, outputTokens, usd };
 }

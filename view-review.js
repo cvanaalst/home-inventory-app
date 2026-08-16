@@ -114,6 +114,14 @@ export function initReviewView({ onOpenContainer, onOpenSettings }) {
       }),
     );
     if (drafts.length) await putItems(drafts);
+    // A re-run appends rather than replaces — the notes field is the user's,
+    // and an earlier AI pass (or their own notes) shouldn't be overwritten.
+    if (result.description) {
+      const comment = container.comment ? `${container.comment}\n\n${result.description}` : result.description;
+      const updated = await putItem({ ...container, comment });
+      const idx = containers.findIndex((c) => c.id === container.id);
+      if (idx !== -1) containers[idx] = updated;
+    }
     return { outcome: "success", count: drafts.length };
   }
 

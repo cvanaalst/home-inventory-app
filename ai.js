@@ -35,9 +35,10 @@ function blobToBase64(blob) {
 }
 
 /** Sends one container's photos to Claude and returns a sanitized draft-item
- * list. photos: [{blob, mimeType}]. Never throws — every failure path
- * (no key configured, offline, API error, malformed response) resolves to
- * an { outcome } result so a batch run can continue past one bad container. */
+ * list plus a short contents description. photos: [{blob, mimeType}]. Never
+ * throws — every failure path (no key configured, offline, API error,
+ * malformed response) resolves to an { outcome } result so a batch run can
+ * continue past one bad container. */
 async function identifyContainerPhotos(photos) {
   const list = Array.isArray(photos) ? photos.filter((p) => p && p.blob) : [];
   if (list.length === 0) return { outcome: "error", message: "No photos to identify." };
@@ -100,7 +101,8 @@ async function identifyContainerPhotos(photos) {
   const textBlock = Array.isArray(payload.content) ? payload.content.find((b) => b.type === "text") : null;
   if (!textBlock) return { outcome: "error", message: "No response content." };
 
-  return { outcome: "success", items: parseDraft(textBlock.text) };
+  const { items, description } = parseDraft(textBlock.text);
+  return { outcome: "success", items, description };
 }
 
 export { getApiKey, setApiKey, hasApiKey, identifyContainerPhotos };

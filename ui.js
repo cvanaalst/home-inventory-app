@@ -144,6 +144,47 @@ export function alertDialog(message, okLabel = "OK") {
   return openDialog(message, [{ label: okLabel, value: undefined, primary: true }]).then(() => {});
 }
 
+/** openLightbox(url) — full-screen image viewer. Same backdrop-click /
+ * Escape / focus-restore mechanics as openDialog, but with no buttons to
+ * choose between, so it resolves nothing — callers just fire-and-forget. */
+export function openLightbox(url) {
+  const root = document.getElementById("dialog-root");
+  if (!root) return;
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "lightbox-backdrop";
+  const img = document.createElement("img");
+  img.className = "lightbox-img";
+  img.src = url;
+  img.alt = "";
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "lightbox-close";
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.textContent = "×";
+  backdrop.append(img, closeBtn);
+  root.appendChild(backdrop);
+
+  const previouslyFocused = document.activeElement;
+  closeBtn.focus();
+
+  function onKeydown(e) {
+    if (e.key === "Escape") close();
+  }
+  document.addEventListener("keydown", onKeydown);
+
+  function close() {
+    document.removeEventListener("keydown", onKeydown);
+    backdrop.remove();
+    if (previouslyFocused instanceof HTMLElement) previouslyFocused.focus();
+  }
+
+  closeBtn.addEventListener("click", close);
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop) close();
+  });
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // swipe gestures — swipe-left to delete, swipe-right to pin (§9 Gestures).
 // Pointer Events unify touch and mouse, so this is also drivable in tests.

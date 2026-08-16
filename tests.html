@@ -694,34 +694,49 @@ section("buildPrompt");
 section("draftOutputSchema");
 {
   const schema = aiplan.draftOutputSchema();
-  assertEqual(schema.required, ["items"], "the top-level schema requires the items array — the API's structured-output guarantee is only as strong as this required list");
+  assertEqual(schema.required, ["items", "description"], "the top-level schema requires both the items array and the description — the API's structured-output guarantee is only as strong as this required list");
   assertEqual(schema.properties.items.items.required, ["title"], "only title is required per item — quantity/category/tags are optional so the model isn't forced to invent a category it can't determine");
   assertEqual(schema.additionalProperties, false, "no additional top-level properties allowed, keeping the response shape exactly what parseDraft expects");
 }
 
 section("parseDraft");
-assertEqual(aiplan.parseDraft("not json"), [], "unparseable text degrades to an empty draft list rather than throwing mid-batch-run");
-assertEqual(aiplan.parseDraft("null"), [], "valid JSON that isn't the expected {items} object still yields no drafts");
-assertEqual(aiplan.parseDraft(JSON.stringify({ items: [] })), [], "an empty items array is a legitimate 'nothing recognized' result, not an error");
+assertEqual(aiplan.parseDraft("not json"), { items: [], description: "" }, "unparseable text degrades to an empty result rather than throwing mid-batch-run");
+assertEqual(aiplan.parseDraft("null"), { items: [], description: "" }, "valid JSON that isn't the expected {items, description} object still yields nothing");
+assertEqual(aiplan.parseDraft(JSON.stringify({ items: [], description: "" })), { items: [], description: "" }, "an empty items array is a legitimate 'nothing recognized' result, not an error");
 assertEqual(
-  aiplan.parseDraft(JSON.stringify({ items: [{ title: "  Hammer  ", quantity: 2, category: "TOOLS", tags: ["metal", "hand-tool"] }] })),
+  aiplan.parseDraft(JSON.stringify({ items: [{ title: "  Hammer  ", quantity: 2, category: "TOOLS", tags: ["metal", "hand-tool"] }], description: "" })).items,
   [{ title: "Hammer", quantity: 2, category: "tools", tags: ["metal", "hand-tool"] }],
   "a well-formed item is trimmed, quantity kept, category lowercased — matching normalizeCategory's own convention in db.js so a confirmed draft round-trips unchanged",
 );
 assertEqual(
-  aiplan.parseDraft(JSON.stringify({ items: [{ title: "Screwdriver" }] })),
+  aiplan.parseDraft(JSON.stringify({ items: [{ title: "Screwdriver" }], description: "" })).items,
   [{ title: "Screwdriver", quantity: 1, category: "", tags: [] }],
   "omitted optional fields default the same way makeRecord's own normalizers do — quantity 1, empty category, no tags",
 );
 assertEqual(
-  aiplan.parseDraft(JSON.stringify({ items: [{ title: "" }, { quantity: 5 }, { title: "Valid" }] })),
+  aiplan.parseDraft(JSON.stringify({ items: [{ title: "" }, { quantity: 5 }, { title: "Valid" }], description: "" })).items,
   [{ title: "Valid", quantity: 1, category: "", tags: [] }],
   "entries with no usable title are dropped rather than surfacing as blank drafts the user has to notice and delete",
 );
 assertEqual(
-  aiplan.parseDraft(JSON.stringify({ items: Array.from({ length: 60 }, (_, i) => ({ title: `Item ${i}` })) })).length,
+  aiplan.parseDraft(JSON.stringify({ items: Array.from({ length: 60 }, (_, i) => ({ title: `Item ${i}` })), description: "" })).items.length,
   40,
   "an implausibly long item list from a single photo is capped, the same defensive posture as expandNameRange's RANGE_MAX",
+);
+assertEqual(
+  aiplan.parseDraft(JSON.stringify({ items: [], description: "  A box of assorted cables and connectors.  " })).description,
+  "A box of assorted cables and connectors.",
+  "the description is trimmed the same way item titles are",
+);
+assertEqual(
+  aiplan.parseDraft(JSON.stringify({ items: [], description: "x".repeat(400) })).description.length,
+  250,
+  "an over-long description is hard-capped at 250 characters regardless of what the model returned — the schema asks nicely, this is the actual guarantee",
+);
+assertEqual(
+  aiplan.parseDraft(JSON.stringify({ items: [], description: 42 })).description,
+  "",
+  "a non-string description (malformed response) degrades to empty rather than crashing the append-to-notes step",
 );
 
 section("estimateContainerCost / planBatch");

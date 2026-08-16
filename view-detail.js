@@ -3,8 +3,8 @@
 // the location select is write-through, text fields are save-gated on
 // blur, item quantity is write-through, item text fields are save-gated.
 
-import { queryItems, getItem, putItem, putItems, makeRecord } from "./db.js";
-import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass } from "./ui.js";
+import { queryItems, getItem, putItem, putItems, makeRecord, getMedia } from "./db.js";
+import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
 import { buildPrintReportHtml } from "./report.js";
@@ -32,11 +32,13 @@ export function initDetailView({ onDeleted }) {
   const deleteBtn = document.getElementById("detail-delete-btn");
   const printBtn = document.getElementById("detail-print-btn");
   const categoryOptionsEl = document.getElementById("category-options");
+  const photoGrid = document.getElementById("detail-photo-grid");
 
   let container = null;
   let locations = [];
   let containers = [];
   let items = [];
+  const photoUrls = new Set();
 
   function refreshCategoryOptionsDatalist() {
     const cats = [
@@ -89,6 +91,27 @@ export function initDetailView({ onDeleted }) {
     titleInput.value = container.title;
     notesInput.value = container.comment;
     populateLocationSelect(locationSelect, locations, (container.linkedIds || [])[0], { noneLabel: t("detail.noLocation") });
+  }
+
+  /** Read-only thumbnail grid of the container's photos — tapping one opens
+   * it full-size via openLightbox(). Unlike view-capture.js's grid, there's
+   * no remove button here; deleting a photo isn't this view's job. */
+  async function renderPhotos() {
+    for (const url of photoUrls) URL.revokeObjectURL(url);
+    photoUrls.clear();
+    const attachments = container.attachments || [];
+    photoGrid.hidden = attachments.length === 0;
+    photoGrid.innerHTML = attachments.map((a) => `<button type="button" class="capture-photo-tile" data-media-id="${escapeHtml(a.mediaId)}"><img alt="" /></button>`).join("");
+    for (const a of attachments) {
+      const rec = await getMedia(a.mediaId);
+      if (!rec || !rec.blob) continue;
+      const url = URL.createObjectURL(rec.blob);
+      photoUrls.add(url);
+      const tile = photoGrid.querySelector(`[data-media-id="${CSS.escape(a.mediaId)}"]`);
+      if (!tile) continue;
+      tile.querySelector("img").src = url;
+      tile.addEventListener("click", () => openLightbox(url));
+    }
   }
 
   function renderConfirmButton() {
@@ -368,6 +391,7 @@ export function initDetailView({ onDeleted }) {
     if (!ok) return;
     renderHeader();
     renderFields();
+    await renderPhotos();
     await renderItems();
   }
 
