@@ -1266,8 +1266,8 @@ textarea {
   }
 
   .print-container-thumb {
-    width: 28px;
-    height: 28px;
+    width: 56px;
+    height: 56px;
     object-fit: cover;
     border-radius: 2px;
     flex-shrink: 0;

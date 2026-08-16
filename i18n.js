@@ -119,7 +119,7 @@ const dict = {
     "search.codeExists": "{code} bestaat al",
 
     "detail.code": "Code",
-    "detail.name": "Naam",
+    "detail.name": "Containernaam",
     "detail.location": "Locatie",
     "detail.noLocation": "— geen locatie —",
     "detail.notes": "Notities",
@@ -435,7 +435,7 @@ const dict = {
     "search.codeExists": "{code} already exists",
 
     "detail.code": "Code",
-    "detail.name": "Name",
+    "detail.name": "Container name",
     "detail.location": "Location",
     "detail.noLocation": "— no location —",
     "detail.notes": "Notes",
