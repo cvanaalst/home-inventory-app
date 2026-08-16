@@ -26,7 +26,7 @@ import * as db from "./db.js";
 import { dictionaryKeys } from "./i18n.js";
 import { render } from "./markdown.js";
 import * as report from "./report.js";
-import { formatFieldsSummary } from "./report.js";
+import { formatFieldsSummary, formatHistoryValue } from "./report.js";
 import * as merge from "./merge.js";
 import { parseItemsPayload, buildMultipartBody } from "./sync.js";
 import * as aiplan from "./aiplan.js";
@@ -577,6 +577,31 @@ section("buildLabelSheetHtml");
   const deleted = [{ id: "c1", type: "container", code: "GONE-001", deletedAt: "2026-01-01T00:00:00.000Z", linkedIds: [] }];
   const html = report.buildLabelSheetHtml({ containers: deleted, locations: [], t });
   assertTrue(!html.includes("GONE-001"), "a soft-deleted container never gets a label printed, even if a stale selection somehow included it");
+}
+
+section("formatHistoryValue");
+{
+  const t = (key, vars) => (vars ? `${key}(${JSON.stringify(vars)})` : key);
+  assertEqual(formatHistoryValue("quantity", 5, { t }), "5", "a plain scalar renders as-is");
+  assertEqual(formatHistoryValue("title", "", { t }), "history.empty", "an empty string is treated as empty, not printed as a blank diff side");
+  assertEqual(formatHistoryValue("title", undefined, { t }), "history.empty", "a field the record never had (e.g. an older type) renders as empty rather than the literal word 'undefined'");
+  assertEqual(formatHistoryValue("pinned", true, { t }), "history.yes", "a boolean field renders as a translated yes/no, not 'true'/'false'");
+  assertEqual(formatHistoryValue("pinned", false, { t }), "history.no", "pinned:false is a real, displayable value — not treated as empty");
+  assertEqual(formatHistoryValue("tags", [], { t }), "history.empty", "an empty tag list is empty");
+  assertEqual(formatHistoryValue("tags", ["a", "b"], { t }), "a, b", "tags join with a comma");
+  assertEqual(
+    formatHistoryValue("fields", [{ id: "f1", key: "Tolerance", value: "5%" }], { t }),
+    "Tolerance: 5%",
+    "structured item.fields reuse formatFieldsSummary — one join implementation, not two that can drift apart",
+  );
+  assertEqual(formatHistoryValue("links", [{ label: "Datasheet", url: "https://x" }], { t }), "Datasheet", "a link with a label shows the label");
+  assertEqual(formatHistoryValue("links", [{ label: "", url: "https://x" }], { t }), "https://x", "a link with no label falls back to the url rather than an empty string");
+  assertEqual(formatHistoryValue("attachments", [{ mediaId: "m1" }], { t }), "history.photoCount.one", "exactly one photo uses the singular translation key");
+  assertEqual(formatHistoryValue("attachments", [{ mediaId: "m1" }, { mediaId: "m2" }], { t }), 'history.photoCount({"n":2})', "more than one photo uses the plural key with the count interpolated");
+  const itemsById = new Map([["c1", { id: "c1", title: "Cables box" }]]);
+  assertEqual(formatHistoryValue("linkedIds", ["c1"], { t, itemsById }), "Cables box", "linkedIds resolves to the target record's title — 'moved to Cables box', not a bare UUID");
+  assertEqual(formatHistoryValue("linkedIds", ["gone"], { t, itemsById }), "gone", "an id that no longer resolves (its target was later purged) falls back to the raw id rather than hiding the change");
+  assertEqual(formatHistoryValue("linkedIds", [], { t, itemsById }), "history.empty", "no parent link is empty, not a bare comma-less nothing");
 }
 
 // ══════════════════════════════════════════════════════════════════════

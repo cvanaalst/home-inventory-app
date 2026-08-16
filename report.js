@@ -22,6 +22,35 @@ export function formatFieldsSummary(fields) {
   return (fields || []).map((f) => (f.value ? `${f.key}: ${f.value}` : f.key)).join(" · ");
 }
 
+/** One DIFFABLE_FIELDS value (db.js), rendered for a revision-history diff
+ * line. `itemsById` resolves a linkedIds entry to a title so "moved to X"
+ * reads like a place, not a UUID — an id that no longer resolves (its
+ * target was itself later purged) falls back to the raw id rather than
+ * silently hiding the change. */
+export function formatHistoryValue(field, value, { t, itemsById = new Map() } = {}) {
+  if (value === undefined || value === null || value === "") return t("history.empty");
+  if (field === "pinned") return value ? t("history.yes") : t("history.no");
+  if (field === "linkedIds") {
+    if (!Array.isArray(value) || value.length === 0) return t("history.empty");
+    return value.map((id) => itemsById.get(id)?.title || id).join(", ");
+  }
+  if (field === "tags") {
+    return Array.isArray(value) && value.length ? value.join(", ") : t("history.empty");
+  }
+  if (field === "fields") {
+    return formatFieldsSummary(value) || t("history.empty");
+  }
+  if (field === "links") {
+    if (!Array.isArray(value) || value.length === 0) return t("history.empty");
+    return value.map((l) => l.label || l.url).filter(Boolean).join(", ") || t("history.empty");
+  }
+  if (field === "attachments") {
+    if (!Array.isArray(value) || value.length === 0) return t("history.empty");
+    return value.length === 1 ? t("history.photoCount.one") : t("history.photoCount", { n: value.length });
+  }
+  return String(value);
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // insights
 // ────────────────────────────────────────────────────────────────────────

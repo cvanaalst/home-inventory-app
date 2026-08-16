@@ -3,8 +3,8 @@
 // the location select is write-through, text fields are save-gated on
 // blur, item quantity is write-through, item text fields are save-gated.
 
-import { queryItems, getItem, putItem, putItems, makeRecord, makeId, getMedia, normalizeCode, nextCode } from "./db.js";
-import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox } from "./ui.js";
+import { queryItems, getItem, putItem, putItems, putMedia, makeRecord, makeId, getMedia, normalizeCode, nextCode } from "./db.js";
+import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox, resizeImageToBlob } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
 import { buildPrintReportHtml, formatFieldsSummary } from "./report.js";
@@ -35,6 +35,9 @@ export function initDetailView({ onDeleted }) {
   const printBtn = document.getElementById("detail-print-btn");
   const categoryOptionsEl = document.getElementById("category-options");
   const photoGrid = document.getElementById("detail-photo-grid");
+  const photoInput = document.getElementById("detail-photo-input");
+  const photoAddBtn = document.getElementById("detail-photo-add-btn");
+  const photoAiToggle = document.getElementById("detail-photo-ai-toggle");
   const codeErrorEl = document.getElementById("detail-code-error");
   const copyBtn = document.getElementById("detail-copy-btn");
   const copyForm = document.getElementById("detail-copy-form");
@@ -438,6 +441,44 @@ export function initDetailView({ onDeleted }) {
     await renderItems();
   });
 
+  // ---------- add photos ----------
+  //
+  // Unlike view-capture.js's grid (built for a container mid-capture),
+  // this one starts read-only — but an already-confirmed container still
+  // legitimately gains new reference photos later (a replacement part, a
+  // better angle). Mirrors capture's resize/store/append pattern exactly.
+  // The AI toggle is the one addition: leaving it checked behaves exactly
+  // like capture (new photos are fair game for the Review queue);
+  // unchecking it also marks the container confirmed, which is the signal
+  // view-review.js's visibleQueueContainers() already uses to keep a
+  // container out of the default queue — no new schema field needed.
+
+  photoAddBtn.addEventListener("click", () => photoInput.click());
+
+  photoInput.addEventListener("change", async () => {
+    const files = Array.from(photoInput.files || []);
+    photoInput.value = "";
+    if (!container || files.length === 0) return;
+    photoAddBtn.disabled = true;
+    try {
+      const newAttachments = [];
+      for (const file of files) {
+        const { blob, width, height } = await resizeImageToBlob(file);
+        const mediaId = makeId();
+        await putMedia({ id: mediaId, blob, mimeType: "image/jpeg" });
+        newAttachments.push({ mediaId, filename: file.name || "", mimeType: "image/jpeg", size: blob.size, width, height });
+      }
+      const patch = { attachments: [...(container.attachments || []), ...newAttachments] };
+      if (!photoAiToggle.checked) patch.status = "confirmed";
+      await patchContainer(patch);
+      renderHeader();
+      renderConfirmButton();
+      await renderPhotos();
+    } finally {
+      photoAddBtn.disabled = false;
+    }
+  });
+
   // ---------- add item ----------
 
   // New-item fields have no item id to write through to yet, so unlike the
@@ -622,6 +663,7 @@ export function initDetailView({ onDeleted }) {
     if (!ok) return;
     codeErrorEl.hidden = true;
     closeCopyForm();
+    photoAiToggle.checked = true;
     renderHeader();
     renderFields();
     await renderPhotos();

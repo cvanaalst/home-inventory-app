@@ -1421,6 +1421,41 @@ textarea {
 }
 
 /* ============================================================
+   Revision history (Settings)
+   ============================================================ */
+
+.history-entry {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-entry:last-child {
+  border-bottom: none;
+}
+
+.history-entry-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.history-entry-when {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.history-diff-row {
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow-wrap: break-word;
+}
+
+.history-diff-field {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ============================================================
    Skeleton loader (§6 polish) — reuses .row-card's own box so a real
    row swaps in at the same height, with no layout shift.
    ============================================================ */

@@ -47,10 +47,14 @@ export function initReviewView({ onOpenContainer, onOpenSettings }) {
 
   // Default view: only containers never run through AI before — re-running
   // an already-identified one takes an explicit opt-in via the toggle, so a
-  // batch click can't accidentally re-spend on containers already done.
+  // batch click can't accidentally re-spend on containers already done. A
+  // confirmed container is excluded the same way: view-detail.js's "add
+  // photos without AI" sets status to confirmed specifically so reference
+  // photos added to an already-settled container don't silently re-enter
+  // the queue — the toggle still reveals it for an explicit re-run.
   function visibleQueueContainers() {
     const withPhotos = containersWithPhotos();
-    return showIdentifiedToggle.checked ? withPhotos : withPhotos.filter((c) => aiItemCountFor(c.id) === 0);
+    return showIdentifiedToggle.checked ? withPhotos : withPhotos.filter((c) => aiItemCountFor(c.id) === 0 && c.status !== "confirmed");
   }
 
   // ---------- queue (select containers, run AI) ----------

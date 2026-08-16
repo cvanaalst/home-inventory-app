@@ -180,10 +180,18 @@ async function getItem(id) {
 
 /** Snapshots `oldRecord` into the versions store (same transaction as the
  * write) when a diffable field actually changed, then trims to VERSION_KEEP.
- * Not exported — putItem's internal write-time hook. */
+ * Not exported — putItem's internal write-time hook.
+ *
+ * Content (diffRecords), not updatedAt, is the only "did this actually
+ * change" signal — an updatedAt-equality shortcut used to sit in front of
+ * it, meant to skip a sync rewrite that put the exact same record back.
+ * That protection was already redundant (an unchanged record also diffs
+ * empty) and actively wrong for the normal touch:true path: nowIso() is
+ * millisecond-resolution, so two genuinely different edits landing in the
+ * same millisecond compared equal and silently lost the earlier one's
+ * snapshot — a real revision-history gap, not just a theoretical one. */
 async function snapshotIfChanged(tx, oldRecord, newRecord) {
   if (!oldRecord) return; // first write — nothing to snapshot
-  if (oldRecord.updatedAt === newRecord.updatedAt) return; // sync rewrote the set but this row didn't move
   const diff = diffRecords(oldRecord, newRecord);
   if (Object.keys(diff).length === 0) return;
 
@@ -287,6 +295,15 @@ async function clearVersions(recordId) {
   const keys = await reqToPromise(store.getAllKeys(versionKeyRange(recordId)));
   keys.forEach((k) => store.delete(k));
   await txDone(tx);
+}
+
+/** Every snapshot across every record, unsorted — there is no secondary
+ * index on `at`, so a global revision-history screen reads the whole store
+ * and sorts in memory. Fine at this app's scale (a personal inventory, not
+ * a fleet); revisit with an index if that stops being true. */
+async function getAllVersions() {
+  const db = await openDB();
+  return reqToPromise(db.transaction("versions", "readonly").objectStore("versions").getAll());
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -787,6 +804,7 @@ export {
   // revision history
   getVersions,
   clearVersions,
+  getAllVersions,
   versionKey,
   versionKeyRange,
   // media

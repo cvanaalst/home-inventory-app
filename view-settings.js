@@ -2,9 +2,10 @@
 // and wired directly in app.js (needed at boot, before any view exists);
 // everything here is view-local and needs fresh data on every open.
 
-import { getStorageEstimate, requestPersistentStorage, getMeta, setMeta, clearItems, clearMedia } from "./db.js";
+import { getStorageEstimate, requestPersistentStorage, getMeta, setMeta, clearItems, clearMedia, getAllVersions, getAllItems, diffRecords } from "./db.js";
 import { t } from "./i18n.js";
 import { toast, confirmDialog, escapeHtml } from "./ui.js";
+import { formatHistoryValue } from "./report.js";
 import {
   getConnectionStatus,
   setClientId,
@@ -107,6 +108,89 @@ export function initSettingsView() {
     persistStatusEl.textContent = granted ? t("settings.storage.persistGranted") : t("settings.storage.persistDenied");
     persistBtn.hidden = granted;
   });
+
+  // ---------- revision history ----------
+  //
+  // db.js's `versions` store already snapshots the full pre-change record on
+  // every diffable edit (see snapshotIfChanged) — nothing displayed it until
+  // now. It's keyed per-record only (no index on `at`), so a global feed
+  // means reading the whole store and sorting in memory; fine at this app's
+  // scale. Each snapshot represents the state BEFORE one edit, so the "after"
+  // state for entry i is either the next-newer snapshot for that same
+  // record, or — if there isn't one — the record's current live state. If
+  // even that's gone (the record was later purged from Trash), there's
+  // nothing to diff against, so that entry just reports "deleted".
+
+  const HISTORY_DISPLAY_CAP = 100;
+
+  function historyTypeLabel(type) {
+    return t(`trash.type.${type}`);
+  }
+
+  function historyEntryTitle(record, type) {
+    if (!record) return t("history.untitled");
+    if (record.title) return record.title;
+    if (type === "container" && record.code) return record.code;
+    if (type === "location") {
+      const path = [record.room, record.storage, record.section].filter(Boolean).join(" › ");
+      if (path) return path;
+    }
+    return t("history.untitled");
+  }
+
+  async function loadHistoryEntries() {
+    const [versions, items] = await Promise.all([getAllVersions(), getAllItems()]);
+    const itemsById = new Map(items.map((i) => [i.id, i]));
+
+    const byId = new Map();
+    for (const v of versions) {
+      const id = v.key.slice(0, v.key.lastIndexOf("#"));
+      if (!byId.has(id)) byId.set(id, []);
+      byId.get(id).push(v);
+    }
+
+    const entries = [];
+    for (const list of byId.values()) {
+      list.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+      for (let i = 0; i < list.length; i++) {
+        const before = list[i].snapshot;
+        const after = i + 1 < list.length ? list[i + 1].snapshot : itemsById.get(before.id) || null;
+        entries.push({ at: list[i].at, before, after });
+      }
+    }
+    entries.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+    return { entries: entries.slice(0, HISTORY_DISPLAY_CAP), itemsById };
+  }
+
+  function historyEntryHtml(entry, itemsById) {
+    const type = entry.before.type;
+    const title = historyEntryTitle(entry.after || entry.before, type);
+    const when = new Date(entry.at).toLocaleString();
+    const head = `<div class="history-entry-title">${escapeHtml(historyTypeLabel(type))} · ${escapeHtml(title)}</div><div class="history-entry-when">${escapeHtml(when)}</div>`;
+
+    if (!entry.after) {
+      return `<div class="history-entry">${head}<div class="history-diff-row">${escapeHtml(t("history.deleted"))}</div></div>`;
+    }
+
+    const diff = diffRecords(entry.before, entry.after);
+    const rows = Object.entries(diff)
+      .map(([field, { from, to }]) => {
+        const label = t(`history.field.${field}`);
+        const fromText = formatHistoryValue(field, from, { t, itemsById });
+        const toText = formatHistoryValue(field, to, { t, itemsById });
+        return `<div class="history-diff-row"><span class="history-diff-field">${escapeHtml(label)}:</span> ${escapeHtml(fromText)} → ${escapeHtml(toText)}</div>`;
+      })
+      .join("");
+    return `<div class="history-entry">${head}${rows}</div>`;
+  }
+
+  async function refreshHistoryList() {
+    const listEl = document.getElementById("settings-history-list");
+    const emptyEl = document.getElementById("settings-history-empty");
+    const { entries, itemsById } = await loadHistoryEntries();
+    emptyEl.hidden = entries.length > 0;
+    listEl.innerHTML = entries.map((e) => historyEntryHtml(e, itemsById)).join("");
+  }
 
   // ---------- sync ----------
 
@@ -288,6 +372,7 @@ export function initSettingsView() {
 
   async function show() {
     await refreshStorageInfo();
+    await refreshHistoryList();
     await refreshSyncStatus();
     await refreshApiKeyStatus();
     await paintInstall();

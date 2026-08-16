@@ -266,6 +266,13 @@
 
           <div class="capture-photo-grid" id="detail-photo-grid" style="margin-bottom: 16px"></div>
 
+          <input type="file" id="detail-photo-input" accept="image/*" capture="environment" multiple hidden />
+          <button class="btn btn-block" id="detail-photo-add-btn" data-i18n="capture.addPhotos" style="margin-bottom: 8px"></button>
+          <label class="row" id="detail-photo-ai-row" style="margin-bottom: 16px; align-items: center; gap: 8px">
+            <input type="checkbox" id="detail-photo-ai-toggle" style="width: auto" checked />
+            <span data-i18n="detail.addPhotosAiToggle"></span>
+          </label>
+
           <button class="btn btn-primary btn-block" id="detail-confirm-btn" hidden style="margin-bottom: 16px"></button>
 
           <div class="section-label" id="detail-items-label"></div>
@@ -494,6 +501,12 @@
           <div class="storage-bar"><div class="storage-bar-fill" id="settings-storage-bar-fill"></div></div>
           <p class="muted" id="settings-storage-persist-status"></p>
           <button class="btn btn-block" id="settings-storage-persist-btn" data-i18n="settings.storage.persistBtn" style="margin-top: 8px"></button>
+        </section>
+        <section class="settings-section">
+          <h2 data-i18n="settings.history.title"></h2>
+          <p class="muted" data-i18n="settings.history.hint"></p>
+          <div id="settings-history-list" style="margin-top: 10px"></div>
+          <p class="empty-state" id="settings-history-empty" hidden data-i18n="settings.history.empty"></p>
         </section>
         <section class="settings-section">
           <h2 data-i18n="settings.sync.title"></h2>
