@@ -78,12 +78,19 @@ export function initReportView() {
     const max = Math.max(1, ...buckets.map((b) => b.count));
     const w = 300;
     const h = 90;
+    // The value label sits 3px above its bar and needs ~5-6px of its own
+    // glyph height on top of that — 4px of headroom (the old h-18/-14
+    // split) wasn't enough, so the tallest bar's label (always present:
+    // some bucket is always the max) rendered above y=0 and got clipped
+    // by the SVG viewport. 12px top / 14px bottom leaves real room.
+    const topPad = 12;
+    const bottomPad = 14;
     const barW = w / buckets.length;
     const bars = buckets
       .map((b, i) => {
-        const barH = b.count ? Math.max(2, (b.count / max) * (h - 18)) : 0;
+        const barH = b.count ? Math.max(2, (b.count / max) * (h - topPad - bottomPad)) : 0;
         const x = i * barW + 2;
-        const y = h - barH - 14;
+        const y = h - barH - bottomPad;
         const valueLabel = b.count ? `<text x="${x + (barW - 4) / 2}" y="${y - 3}" class="chart-value" text-anchor="middle">${b.count}</text>` : "";
         return `<rect x="${x}" y="${y}" width="${Math.max(0, barW - 4)}" height="${barH}" rx="2" class="chart-bar"></rect>${valueLabel}`;
       })
