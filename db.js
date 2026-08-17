@@ -667,6 +667,23 @@ function nextCode(existingCodes, prefix) {
 
 const RANGE_MAX = 200;
 
+/** "<PREFIX>-NNN" for every number in an inclusive range — the batch
+ * counterpart to nextCode, for bulk-creating a run of container codes at
+ * once (e.g. prefix "BOX", 6, 20 -> ["BOX-006", ..., "BOX-020"]). Never
+ * throws: invalid input normalizes to an empty list, same contract as
+ * expandNameRange. Doesn't check the caller's existing codes for
+ * collisions — codes aren't unique-constrained at the storage layer (see
+ * the callers of nextCode), so whoever calls this must diff the result
+ * against existing codes before writing. */
+function codeRange(prefix, from, to, max = RANGE_MAX) {
+  const p = (prefix || "BOX").toUpperCase().replace(/[^A-Z0-9]/g, "") || "BOX";
+  const start = Number.parseInt(from, 10);
+  const end = Number.parseInt(to, 10);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 1 || end < start) return [];
+  const count = Math.min(end - start + 1, max);
+  return Array.from({ length: count }, (_, i) => `${p}-${String(start + i).padStart(3, "0")}`);
+}
+
 /** Expands a "{n}"-containing name pattern over an inclusive numeric range
  * — "RIJ {n}", 1, 5 -> ["RIJ 1", ..., "RIJ 5"] — for bulk location
  * creation. Never throws: a pattern missing the token, or a nonsensical
@@ -865,5 +882,6 @@ export {
   appendActivity,
   locationPath,
   nextCode,
+  codeRange,
   expandNameRange,
 };

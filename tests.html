@@ -327,6 +327,16 @@ assertEqual(db.nextCode(["BOX-001", "BOX-002", "BOX-010"], "BOX"), "BOX-011", "t
 assertEqual(db.nextCode(["BOX-005", "BAG-002"], "BAG"), "BAG-003", "codes under a different prefix are ignored");
 assertEqual(db.nextCode(["box-9"], "box"), "BOX-010", "prefix matching is case-insensitive since codes are always normalized uppercase");
 
+section("codeRange");
+assertEqual(db.codeRange("BOX", 6, 8), ["BOX-006", "BOX-007", "BOX-008"], "an inclusive range of prefixed, zero-padded codes, same padding as nextCode");
+assertEqual(db.codeRange("box", "3", "3"), ["BOX-003"], "prefix is uppercased and a single-value range (from === to) still produces one code");
+assertEqual(db.codeRange("BOX", 998, 1000), ["BOX-998", "BOX-999", "BOX-1000"], "padding is a minimum width, not a cap — a 4-digit number is never truncated");
+assertEqual(db.codeRange("BOX", 5, 2), [], "a 'to' before 'from' produces nothing rather than counting backwards unexpectedly");
+assertEqual(db.codeRange("BOX", 0, 5), [], "a 'from' below 1 produces nothing — container numbering starts at 1, same as nextCode");
+assertEqual(db.codeRange("BOX", "abc", 5), [], "a non-numeric bound produces nothing rather than NaN-based codes");
+assertEqual(db.codeRange("BOX", 1, 10000).length, 200, "the range is capped (default 200) so a typo in the 'to' field can't silently queue a huge batch write");
+assertEqual(db.codeRange("BOX", 1, 3, 2).length, 2, "the cap is overridable via the max parameter");
+
 section("expandNameRange");
 assertEqual(db.expandNameRange("RIJ {n}", 1, 5), ["RIJ 1", "RIJ 2", "RIJ 3", "RIJ 4", "RIJ 5"], "a pattern containing {n} expands over the inclusive from..to range");
 assertEqual(db.expandNameRange("RIJ {n}", "3", "3"), ["RIJ 3"], "a single-value range (from === to) still produces one name — numeric strings from form inputs work the same as numbers");

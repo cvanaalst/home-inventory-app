@@ -190,6 +190,14 @@
           </span>
           <span class="more-row-chevron" data-icon="chevronRight"></span>
         </button>
+        <button class="more-row" data-nav-push="view-bulk-containers">
+          <span class="more-row-icon" data-icon="items"></span>
+          <span class="more-row-text">
+            <span class="more-row-title" data-i18n="view.bulkContainers.title"></span>
+            <span class="more-row-sub" data-i18n="more.bulkContainers.sub"></span>
+          </span>
+          <span class="more-row-chevron" data-icon="chevronRight"></span>
+        </button>
         <button class="more-row" data-nav-push="view-labels">
           <span class="more-row-icon" data-icon="tag"></span>
           <span class="more-row-text">
@@ -423,6 +431,34 @@
     <datalist id="location-storage-options"></datalist>
     <datalist id="location-section-options"></datalist>
     <datalist id="location-name-options"></datalist>
+
+    <section id="view-bulk-containers" class="view view-pushed" data-view hidden>
+      <header class="view-header">
+        <button class="btn-icon" data-nav-back data-i18n-aria="nav.back"><span data-icon="back"></span></button>
+        <h1 data-i18n="view.bulkContainers.title"></h1>
+      </header>
+      <div class="view-body">
+        <div class="card">
+          <label class="field" style="max-width: 160px">
+            <span data-i18n="search.codePrefix"></span>
+            <input type="text" id="bulk-containers-prefix" autocapitalize="characters" value="BOX" />
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span data-i18n="locations.range.from"></span>
+              <input type="text" id="bulk-containers-from" inputmode="numeric" />
+            </label>
+            <label class="field">
+              <span data-i18n="locations.range.to"></span>
+              <input type="text" id="bulk-containers-to" inputmode="numeric" />
+            </label>
+          </div>
+          <p class="muted" data-i18n="bulkContainers.hint"></p>
+          <button class="btn btn-primary btn-block" id="bulk-containers-create" data-i18n="action.create"></button>
+          <p class="error-text" id="bulk-containers-error" hidden></p>
+        </div>
+      </div>
+    </section>
 
     <section id="view-labels" class="view view-pushed" data-view hidden>
       <header class="view-header">

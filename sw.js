@@ -7,7 +7,7 @@
 // CACHE_VERSION must be bumped, or offline breaks silently for existing
 // installs (§13.13 / §19.5).
 
-const CACHE_VERSION = "v32";
+const CACHE_VERSION = "v33";
 const CACHE_NAME = `inventory-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -37,6 +37,7 @@ const PRECACHE = [
   "./view-more.js",
   "./view-detail.js",
   "./view-locations.js",
+  "./view-bulk-containers.js",
   "./view-labels.js",
   "./view-report.js",
   "./view-settings.js",

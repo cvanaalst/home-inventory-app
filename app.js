@@ -11,6 +11,7 @@ import { getMeta, setMeta, requestPersistentStorage, getAllItems } from "./db.js
 import { initSearchView } from "./view-search.js";
 import { initItemsView } from "./view-items.js";
 import { initLocationsView } from "./view-locations.js";
+import { initBulkContainersView } from "./view-bulk-containers.js";
 import { initLabelsView } from "./view-labels.js";
 import { initCaptureView } from "./view-capture.js";
 import { initReviewView } from "./view-review.js";
@@ -27,6 +28,7 @@ const TAB_TARGETS = ["view-search", "view-items", "view-capture", "view-review",
 const PUSH_TARGETS = [
   "view-detail",
   "view-locations",
+  "view-bulk-containers",
   "view-labels",
   "view-report",
   "view-settings",
@@ -289,6 +291,7 @@ function initViews() {
   viewControllers["view-search"] = initSearchView({ onOpenContainer: openContainer });
   viewControllers["view-items"] = initItemsView({ onOpenContainer: openContainer });
   viewControllers["view-locations"] = initLocationsView();
+  viewControllers["view-bulk-containers"] = initBulkContainersView();
   viewControllers["view-labels"] = initLabelsView();
   viewControllers["view-capture"] = initCaptureView({ onOpenContainer: openContainer });
   viewControllers["view-review"] = initReviewView({ onOpenContainer: openContainer, onOpenSettings: () => pushView("view-settings") });
