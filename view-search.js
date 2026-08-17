@@ -13,7 +13,10 @@ export function initSearchView({ onOpenContainer }) {
   const photoToggle = document.getElementById("search-photo-toggle");
   const resultsEl = document.getElementById("search-results");
   const browseEl = document.getElementById("search-browse");
-  const locationFilter = document.getElementById("search-location-filter");
+  const roomFilter = document.getElementById("search-room-filter");
+  const storageFilter = document.getElementById("search-storage-filter");
+  const sectionFilter = document.getElementById("search-section-filter");
+  const categoryFilter = document.getElementById("search-category-filter");
   const newBtn = document.getElementById("new-container-btn");
   const newForm = document.getElementById("new-container-form");
   const prefixInput = document.getElementById("new-container-prefix");
@@ -162,26 +165,62 @@ export function initSearchView({ onOpenContainer }) {
       const { results: items } = queryItemSet(allRecords, { type: "item" });
       const locById = new Map(locations.map((l) => [l.id, l]));
       const itemCounts = new Map();
+      // A container has no category of its own — "category" only lives on
+      // items — so filtering containers by category means "contains at
+      // least one item of this category", built from the same item scan
+      // that already computes itemCounts.
+      const categoriesByContainer = new Map();
       for (const it of items) {
-        for (const id of it.linkedIds || []) itemCounts.set(id, (itemCounts.get(id) || 0) + 1);
+        for (const id of it.linkedIds || []) {
+          itemCounts.set(id, (itemCounts.get(id) || 0) + 1);
+          if (it.category) {
+            if (!categoriesByContainer.has(id)) categoriesByContainer.set(id, new Set());
+            categoriesByContainer.get(id).add(it.category);
+          }
+        }
+      }
+      refreshCategoryFilter(items);
+
+      const roomVal = roomFilter.value;
+      const storageVal = storageFilter.value;
+      const sectionVal = sectionFilter.value;
+      const categoryVal = categoryFilter.value;
+      const locationActive = !!(roomVal || storageVal || sectionVal);
+
+      let filtered = containers;
+      if (locationActive) {
+        filtered = filtered.filter((c) => {
+          const loc = locById.get((c.linkedIds || [])[0]);
+          if (!loc) return false;
+          if (roomVal && loc.room !== roomVal) return false;
+          if (storageVal && loc.storage !== storageVal) return false;
+          if (sectionVal && loc.section !== sectionVal) return false;
+          return true;
+        });
+      }
+      if (categoryVal) {
+        filtered = filtered.filter((c) => categoriesByContainer.get(c.id)?.has(categoryVal));
       }
 
-      const filterId = locationFilter.value;
-      const filtered = filterId ? containers.filter((c) => (c.linkedIds || []).includes(filterId)) : containers;
+      const labelParts = [];
+      if (locationActive) labelParts.push([roomVal, storageVal, sectionVal].filter(Boolean).join(" › "));
+      if (categoryVal) labelParts.push(categoryVal);
+      const filterLabel = labelParts.join(" · ");
 
-      browseLabel.textContent = filterId ? t("search.browseAt", { location: locationPath(locById.get(filterId)) }) : t("search.browseAll");
+      browseLabel.textContent = filterLabel ? t("search.browseAt", { location: filterLabel }) : t("search.browseAll");
       if (photoMode) {
         browseEmpty.hidden = true; // renderContainers renders its own "no photos" empty state inline
       } else {
         browseEmpty.hidden = filtered.length > 0;
         // Filter-aware: "no containers at all" reads very differently from
-        // "none at this particular location" — the latter would otherwise
-        // wrongly imply the whole inventory is empty when it isn't.
-        browseEmpty.textContent = filterId
-          ? t("search.noContainersAt", { location: locationPath(locById.get(filterId)) })
-          : t("search.noContainers");
+        // "none matching this filter" — the latter would otherwise wrongly
+        // imply the whole inventory is empty when it isn't.
+        browseEmpty.textContent = filterLabel ? t("search.noContainersAt", { location: filterLabel }) : t("search.noContainers");
       }
-      if (!photoMode && !filterId && filtered.length) {
+      // Grouping by location only helps when browsing the whole, unfiltered
+      // list — once a filter has already narrowed things down, a flat list
+      // is short enough that a redundant group heading just adds noise.
+      if (!photoMode && !locationActive && !categoryVal && filtered.length) {
         browseList.innerHTML = groupedContainerListHtml(filtered, locById, itemCounts);
         wireContainerRows(browseList);
         hydrateThumbnails(browseList);
@@ -193,23 +232,63 @@ export function initSearchView({ onOpenContainer }) {
     }
   }
 
-  function refreshLocationFilter() {
-    const current = locationFilter.value;
-    locationFilter.innerHTML = "";
-    const all = document.createElement("option");
-    all.value = "";
-    all.textContent = t("search.locationFilterAll");
-    locationFilter.appendChild(all);
-    for (const loc of [...locations].sort((a, b) => locationPath(a).localeCompare(locationPath(b), undefined, { numeric: true, sensitivity: "base" }))) {
-      const opt = document.createElement("option");
-      opt.value = loc.id;
-      opt.textContent = locationPath(loc);
-      locationFilter.appendChild(opt);
-    }
-    locationFilter.value = current;
+  function distinctSorted(values) {
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
   }
 
-  locationFilter.addEventListener("change", renderBrowse);
+  function fillOptions(select, allLabel, values, current) {
+    select.innerHTML = `<option value="">${escapeHtml(allLabel)}</option>` + values.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+    select.value = values.includes(current) ? current : "";
+  }
+
+  // Strictly cascading — room, then storage scoped to that room, then
+  // section scoped to that room+storage — matching the request's "ROOM or
+  // ROOM+STORAGE or ROOM+STORAGE+SECTION" shape rather than letting
+  // storage/section be picked independently of the level above them.
+  function refreshRoomFilter() {
+    fillOptions(roomFilter, t("search.locationFilterAllRooms"), distinctSorted(locations.map((l) => l.room)), roomFilter.value);
+  }
+
+  function refreshStorageFilter() {
+    const room = roomFilter.value;
+    if (!room) {
+      fillOptions(storageFilter, t("search.locationFilterAllStorage"), [], "");
+      storageFilter.disabled = true;
+      return;
+    }
+    const storages = distinctSorted(locations.filter((l) => l.room === room).map((l) => l.storage));
+    fillOptions(storageFilter, t("search.locationFilterAllStorage"), storages, storageFilter.value);
+    storageFilter.disabled = storages.length === 0;
+  }
+
+  function refreshSectionFilter() {
+    const room = roomFilter.value;
+    const storage = storageFilter.value;
+    if (!room || !storage) {
+      fillOptions(sectionFilter, t("search.locationFilterAllSections"), [], "");
+      sectionFilter.disabled = true;
+      return;
+    }
+    const sections = distinctSorted(locations.filter((l) => l.room === room && l.storage === storage).map((l) => l.section));
+    fillOptions(sectionFilter, t("search.locationFilterAllSections"), sections, sectionFilter.value);
+    sectionFilter.disabled = sections.length === 0;
+  }
+
+  function refreshCategoryFilter(items) {
+    fillOptions(categoryFilter, t("search.categoryFilterAll"), distinctSorted(items.map((i) => i.category)), categoryFilter.value);
+  }
+
+  roomFilter.addEventListener("change", () => {
+    refreshStorageFilter();
+    refreshSectionFilter();
+    renderBrowse();
+  });
+  storageFilter.addEventListener("change", () => {
+    refreshSectionFilter();
+    renderBrowse();
+  });
+  sectionFilter.addEventListener("change", renderBrowse);
+  categoryFilter.addEventListener("change", renderBrowse);
 
   // ---------- new container ----------
 
@@ -359,7 +438,9 @@ export function initSearchView({ onOpenContainer }) {
   async function show() {
     const { results } = await queryItems({ type: "location" });
     locations = results;
-    refreshLocationFilter();
+    refreshRoomFilter();
+    refreshStorageFilter();
+    refreshSectionFilter();
     if (input.value.trim()) {
       resultsEl.hidden = false;
       browseEl.hidden = true;

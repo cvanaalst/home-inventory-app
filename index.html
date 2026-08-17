@@ -37,8 +37,13 @@
       <div id="search-results" hidden></div>
 
       <div id="search-browse">
+        <div class="field-row" style="margin-bottom: 8px">
+          <select id="search-room-filter" class="grow"></select>
+          <select id="search-storage-filter" class="grow" disabled></select>
+          <select id="search-section-filter" class="grow" disabled></select>
+        </div>
         <div class="row" style="margin-bottom: 12px">
-          <select id="search-location-filter" class="grow"></select>
+          <select id="search-category-filter" class="grow"></select>
         </div>
         <button class="btn btn-block" id="new-container-btn" data-i18n="search.newContainer" style="margin-bottom: 12px"></button>
         <div id="new-container-form" class="card" hidden>
