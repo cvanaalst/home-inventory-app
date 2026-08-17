@@ -125,10 +125,23 @@ function setLanguage(lang) {
 
 // ---------- about ----------
 
+/** "26-08" -> "August 2026" (or "augustus 2026" in NL) via the browser's own
+ * locale data rather than a hand-rolled month-name table. */
+function formatVersionMonth(dateStr) {
+  const m = /^(\d{2})-(\d{2})$/.exec(dateStr || "");
+  if (!m) return dateStr || "";
+  const year = 2000 + Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const locale = state.lang === "nl" ? "nl-NL" : "en-US";
+  return new Date(year, month, 1).toLocaleDateString(locale, { month: "long", year: "numeric" });
+}
+
 function renderAbout() {
-  const el = document.getElementById("about-version-line");
-  if (!el) return;
-  el.textContent = t("about.line", VERSION);
+  const designedEl = document.getElementById("about-designed-line");
+  const buildEl = document.getElementById("about-build-line");
+  if (!designedEl || !buildEl) return;
+  designedEl.textContent = t("about.designedBy", { designer: VERSION.designer, monthYear: formatVersionMonth(VERSION.date) });
+  buildEl.textContent = t("about.build", { build: VERSION.build, builtAt: VERSION.builtAt });
 }
 
 // ---------- aria-live announcements ----------

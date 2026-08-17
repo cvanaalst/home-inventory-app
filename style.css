@@ -1663,6 +1663,63 @@ textarea {
   flex-shrink: 0;
 }
 
+/* Search tab's photo-only view, full-size mode: one photo at a time at the
+   full width of the results column (compact's grid tiles are ~90px, so this
+   is roughly 3 tiles wide on a phone / 7 on a wide desktop column) with
+   prev/next controls either side and swipe support on the photo itself. */
+.photo-gallery {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.photo-gallery-nav {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  padding: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.photo-gallery-nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.photo-gallery-viewport {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  touch-action: pan-y;
+}
+
+.photo-gallery-photo {
+  display: block;
+  width: 100%;
+  border: none;
+  padding: 0;
+  background: var(--tag-bg);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.photo-gallery-photo img {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.photo-gallery-counter {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 .search-photo-toggle.active {
   color: var(--accent);
   background: var(--tag-bg);

@@ -106,7 +106,8 @@ const dict = {
     "settings.density.comfortable": "Comfortabel",
     "settings.density.compact": "Compact",
 
-    "about.line": "{designer} · {date} · build {build}",
+    "about.designedBy": "Ontworpen door {designer} · {monthYear} · Zonhoven, België",
+    "about.build": "Build {build} · {builtAt}",
 
     "action.create": "Aanmaken",
     "action.close": "Sluiten",
@@ -119,6 +120,9 @@ const dict = {
 
     "search.placeholder": "Zoek items, containers, locaties…",
     "search.photoToggle": "Fotoweergave",
+    "search.photoSizeToggle": "Grote foto's",
+    "search.photoPrev": "Vorige foto",
+    "search.photoNext": "Volgende foto",
     "search.noPhotos": "Geen containers met foto's.",
     "search.newContainer": "＋ Nieuwe container (zonder foto)",
     "search.locationFilterAllRooms": "Alle ruimtes",
@@ -442,7 +446,8 @@ const dict = {
     "settings.density.comfortable": "Comfortable",
     "settings.density.compact": "Compact",
 
-    "about.line": "{designer} · {date} · build {build}",
+    "about.designedBy": "Designed by {designer} · {monthYear} · Zonhoven, Belgium",
+    "about.build": "Build {build} · {builtAt}",
 
     "action.create": "Create",
     "action.close": "Close",
@@ -455,6 +460,9 @@ const dict = {
 
     "search.placeholder": "Search items, containers, locations…",
     "search.photoToggle": "Photo view",
+    "search.photoSizeToggle": "Full-size photos",
+    "search.photoPrev": "Previous photo",
+    "search.photoNext": "Next photo",
     "search.noPhotos": "No containers with photos.",
     "search.newContainer": "＋ New container (no photo)",
     "search.locationFilterAllRooms": "All rooms",

@@ -32,6 +32,7 @@
       <div class="row" style="align-items: center; gap: 8px">
         <input type="search" id="search-input" class="search-input grow" data-i18n-placeholder="search.placeholder" autocomplete="off" autocorrect="off" style="margin-bottom: 0" />
         <button type="button" class="btn-icon search-photo-toggle" id="search-photo-toggle" data-i18n-aria="search.photoToggle" aria-pressed="false"><span data-icon="camera"></span></button>
+        <button type="button" class="btn-icon search-photo-toggle" id="search-photo-size-toggle" hidden data-i18n-aria="search.photoSizeToggle" aria-pressed="false"><span data-icon="expand"></span></button>
       </div>
 
       <div id="search-results" hidden></div>
@@ -667,7 +668,8 @@
         <h1 data-i18n="view.about.title"></h1>
       </header>
       <div class="view-body">
-        <p id="about-version-line" class="about-line"></p>
+        <p id="about-designed-line" class="about-line"></p>
+        <p id="about-build-line" class="about-line muted"></p>
       </div>
     </section>
 

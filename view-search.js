@@ -5,12 +5,14 @@
 import { queryItems, queryItemSet, getAllItems, getMeta, setMeta, putItem, makeRecord, nextCode, locationPath, getMedia } from "./db.js";
 import { populateLocationSelect, escapeHtml, statusBadgeClass, skeletonGate } from "./ui.js";
 import { t, tCount } from "./i18n.js";
+import { icon } from "./icons.js";
 
 const DEBOUNCE_MS = 250;
 
 export function initSearchView({ onOpenContainer }) {
   const input = document.getElementById("search-input");
   const photoToggle = document.getElementById("search-photo-toggle");
+  const photoSizeToggle = document.getElementById("search-photo-size-toggle");
   const resultsEl = document.getElementById("search-results");
   const browseEl = document.getElementById("search-browse");
   const roomFilter = document.getElementById("search-room-filter");
@@ -42,6 +44,15 @@ export function initSearchView({ onOpenContainer }) {
   // more surprising than helpful) — resets to the normal list every time
   // the tab is reopened.
   let photoMode = false;
+  // "compact" = existing thumbnail grid; "full" = one photo at a time,
+  // full width, with prev/next + swipe — only meaningful while photoMode
+  // is on, and reset with it (see photoToggle's click handler).
+  let photoSizeMode = "compact";
+  // The gallery's own flat photo list + position, kept across prev/next so
+  // paging doesn't need to re-run the query — rebuilt fresh each render.
+  let galleryPhotos = [];
+  let galleryIndex = 0;
+  let galleryUrl = null;
 
   function containerRowHtml(c, loc, itemCount) {
     const path = loc ? locationPath(loc) : "";
@@ -88,23 +99,104 @@ export function initSearchView({ onOpenContainer }) {
       .join("");
   }
 
+  function galleryHtml() {
+    return `
+      <div class="photo-gallery">
+        <button type="button" class="photo-gallery-nav photo-gallery-prev" aria-label="${escapeHtml(t("search.photoPrev"))}">${icon("chevronLeft", { size: 22 })}</button>
+        <div class="photo-gallery-viewport">
+          <button type="button" class="photo-gallery-photo"><img alt="" /></button>
+          <p class="photo-gallery-counter"></p>
+        </div>
+        <button type="button" class="photo-gallery-nav photo-gallery-next" aria-label="${escapeHtml(t("search.photoNext"))}">${icon("chevronRight", { size: 22 })}</button>
+      </div>`;
+  }
+
+  /** Paints whichever photo galleryIndex currently points at — swaps the
+   * blob URL and updates the counter/button state in place, no re-render
+   * of the surrounding markup, so prev/next stays snappy. */
+  async function renderGalleryPhoto(targetEl) {
+    const photo = galleryPhotos[galleryIndex];
+    if (!photo) return;
+    const prevBtn = targetEl.querySelector(".photo-gallery-prev");
+    const nextBtn = targetEl.querySelector(".photo-gallery-next");
+    const photoBtn = targetEl.querySelector(".photo-gallery-photo");
+    const counterEl = targetEl.querySelector(".photo-gallery-counter");
+    if (!photoBtn) return;
+    prevBtn.disabled = galleryIndex === 0;
+    nextBtn.disabled = galleryIndex === galleryPhotos.length - 1;
+    counterEl.textContent = `${galleryIndex + 1} / ${galleryPhotos.length}`;
+    photoBtn.setAttribute("data-container-id", photo.containerId);
+    if (galleryUrl) URL.revokeObjectURL(galleryUrl);
+    galleryUrl = null;
+    const rec = await getMedia(photo.mediaId);
+    if (rec && rec.blob) {
+      galleryUrl = URL.createObjectURL(rec.blob);
+      photoBtn.querySelector("img").src = galleryUrl;
+    }
+  }
+
+  function wireGallery(targetEl) {
+    const prevBtn = targetEl.querySelector(".photo-gallery-prev");
+    const nextBtn = targetEl.querySelector(".photo-gallery-next");
+    const viewport = targetEl.querySelector(".photo-gallery-viewport");
+    const photoBtn = targetEl.querySelector(".photo-gallery-photo");
+
+    function go(delta) {
+      const next = galleryIndex + delta;
+      if (next < 0 || next >= galleryPhotos.length) return;
+      galleryIndex = next;
+      renderGalleryPhoto(targetEl);
+    }
+
+    prevBtn.addEventListener("click", () => go(-1));
+    nextBtn.addEventListener("click", () => go(1));
+    photoBtn.addEventListener("click", () => onOpenContainer(galleryPhotos[galleryIndex].containerId));
+
+    // Plain pointerdown/up delta, no capture — a tap that never moves
+    // still reaches the photo button's own click handler untouched.
+    let startX = null;
+    viewport.addEventListener("pointerdown", (e) => {
+      startX = e.clientX;
+    });
+    viewport.addEventListener("pointerup", (e) => {
+      if (startX === null) return;
+      const dx = e.clientX - startX;
+      startX = null;
+      if (Math.abs(dx) < 40) return;
+      go(dx < 0 ? 1 : -1);
+    });
+  }
+
   /** Renders `containers` into `targetEl` as either the normal row list or,
-   * in photo mode, a thumbnail-only grid of just the ones with a photo —
-   * the one branch point renderBrowse() and renderSearchResults() both
-   * call through, so the two entry points can't drift out of sync. */
-  function renderContainers(containers, targetEl, { itemCounts, locById } = {}) {
+   * in photo mode, a thumbnail grid or one-at-a-time gallery of just the
+   * ones with a photo — the one branch point renderBrowse() and
+   * renderSearchResults() both call through, so the two entry points
+   * can't drift out of sync. */
+  async function renderContainers(containers, targetEl, { itemCounts, locById } = {}) {
     if (photoMode) {
       const withPhotos = containers.filter((c) => (c.attachments || []).length > 0);
-      targetEl.innerHTML = withPhotos.length
-        ? `<div class="photo-search-grid">${photoTilesHtml(withPhotos)}</div>`
-        : `<p class="empty-state">${escapeHtml(t("search.noPhotos"))}</p>`;
+      if (!withPhotos.length) {
+        targetEl.innerHTML = `<p class="empty-state">${escapeHtml(t("search.noPhotos"))}</p>`;
+        return;
+      }
+      if (photoSizeMode === "full") {
+        galleryPhotos = withPhotos.flatMap((c) => (c.attachments || []).map((a) => ({ containerId: c.id, mediaId: a.mediaId })));
+        galleryIndex = 0;
+        targetEl.innerHTML = galleryHtml();
+        wireGallery(targetEl);
+        await renderGalleryPhoto(targetEl);
+      } else {
+        targetEl.innerHTML = `<div class="photo-search-grid">${photoTilesHtml(withPhotos)}</div>`;
+        wireContainerRows(targetEl);
+        hydrateThumbnails(targetEl);
+      }
     } else {
       targetEl.innerHTML = containers
         .map((c) => containerRowHtml(c, locById?.get((c.linkedIds || [])[0]), itemCounts?.get(c.id) ?? c.__itemCount ?? 0))
         .join("");
+      wireContainerRows(targetEl);
+      hydrateThumbnails(targetEl);
     }
-    wireContainerRows(targetEl);
-    hydrateThumbnails(targetEl);
   }
 
   /** Fills every .row-thumb img left empty by containerRowHtml. Async and
@@ -225,7 +317,7 @@ export function initSearchView({ onOpenContainer }) {
         wireContainerRows(browseList);
         hydrateThumbnails(browseList);
       } else {
-        renderContainers(filtered, browseList, { itemCounts, locById });
+        await renderContainers(filtered, browseList, { itemCounts, locById });
       }
     } finally {
       browseSkeleton.end(seq);
@@ -345,14 +437,14 @@ export function initSearchView({ onOpenContainer }) {
 
   // ---------- search mode ----------
 
-  function renderSearchResults(items, containers, locs) {
+  async function renderSearchResults(items, containers, locs) {
     // Photo mode collapses the whole items/containers/locations breakdown
     // into one thumbnail grid of just the matched containers that have a
     // photo — items and locations aren't photo-representable, and mixing
     // "text results" with "photo results" in the same screen would defeat
     // the point of a quick visual scan.
     if (photoMode) {
-      renderContainers(containers, resultsEl);
+      await renderContainers(containers, resultsEl);
       return;
     }
     const locById = new Map(locations.map((l) => [l.id, l]));
@@ -408,7 +500,7 @@ export function initSearchView({ onOpenContainer }) {
       for (const it of allItems) for (const id of it.linkedIds || []) counts.set(id, (counts.get(id) || 0) + 1);
       containersRes.results.forEach((c) => (c.__itemCount = counts.get(c.id) || 0));
     }
-    renderSearchResults(itemsRes.results, containersRes.results, locsRes.results);
+    await renderSearchResults(itemsRes.results, containersRes.results, locsRes.results);
   }
 
   input.addEventListener("input", () => {
@@ -430,6 +522,22 @@ export function initSearchView({ onOpenContainer }) {
     photoMode = !photoMode;
     photoToggle.classList.toggle("active", photoMode);
     photoToggle.setAttribute("aria-pressed", String(photoMode));
+    // The size toggle only makes sense once photo mode is on, and always
+    // starts back at "compact" so leaving and re-entering photo mode never
+    // surprises with a full-size gallery no one asked for this time.
+    photoSizeMode = "compact";
+    photoSizeToggle.hidden = !photoMode;
+    photoSizeToggle.classList.remove("active");
+    photoSizeToggle.setAttribute("aria-pressed", "false");
+    const q = input.value.trim();
+    if (q) await runSearch(q);
+    else await renderBrowse();
+  });
+
+  photoSizeToggle.addEventListener("click", async () => {
+    photoSizeMode = photoSizeMode === "full" ? "compact" : "full";
+    photoSizeToggle.classList.toggle("active", photoSizeMode === "full");
+    photoSizeToggle.setAttribute("aria-pressed", String(photoSizeMode === "full"));
     const q = input.value.trim();
     if (q) await runSearch(q);
     else await renderBrowse();
