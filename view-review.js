@@ -32,6 +32,9 @@ export function initReviewView({ onOpenContainer, onOpenSettings }) {
   let items = [];
   let apiKeyConfigured = false;
   const selected = new Set();
+  // Object URLs for queue-row thumbnails, revoked and rebuilt on every
+  // render — same pattern as view-search.js's hydrateThumbnails().
+  const thumbUrls = new Set();
 
   function attachmentPhotos(container) {
     return (container.attachments || []).map((a) => ({ width: a.width, height: a.height }));
@@ -63,14 +66,34 @@ export function initReviewView({ onOpenContainer, onOpenSettings }) {
     const photoCount = (c.attachments || []).length;
     const aiCount = aiItemCountFor(c.id);
     const status = aiCount > 0 ? tCount("review.alreadyIdentified", aiCount) : t("review.notYetIdentified");
+    const firstPhoto = (c.attachments || [])[0];
+    const thumb = firstPhoto ? `<span class="row-thumb" data-media-id="${escapeHtml(firstPhoto.mediaId)}"><img alt="" /></span>` : "";
     return `
       <label class="row-card review-queue-row" data-container-id="${c.id}">
         <input type="checkbox" class="review-queue-check" ${selected.has(c.id) ? "checked" : ""} />
+        ${thumb}
         <span class="row-main">
           <span class="row-title">${escapeHtml(c.code)}${c.title ? ` — ${escapeHtml(c.title)}` : ""}</span>
           <span class="row-sub">${tCount("capture.photoCount", photoCount)} · ${status}</span>
         </span>
       </label>`;
+  }
+
+  /** Fills every .row-thumb img left empty by queueRowHtml. Async and
+   * unawaited by its caller on purpose — rows are fully usable (checkbox,
+   * text) before their thumbnails arrive; images just pop in. */
+  async function hydrateThumbnails(root) {
+    for (const url of thumbUrls) URL.revokeObjectURL(url);
+    thumbUrls.clear();
+    const tiles = root.querySelectorAll("[data-media-id]");
+    for (const tile of tiles) {
+      const rec = await getMedia(tile.getAttribute("data-media-id"));
+      if (!rec || !rec.blob) continue;
+      const url = URL.createObjectURL(rec.blob);
+      thumbUrls.add(url);
+      const img = tile.querySelector("img");
+      if (img) img.src = url;
+    }
   }
 
   function refreshBatchBar() {
@@ -94,6 +117,7 @@ export function initReviewView({ onOpenContainer, onOpenSettings }) {
       // view-search.js, since the two states need different guidance.
       queueFilteredEmpty.hidden = withPhotos.length === 0 || visible.length > 0;
       queueList.innerHTML = visible.map(queueRowHtml).join("");
+      hydrateThumbnails(queueList);
       for (const c of visible) {
         const row = queueList.querySelector(`[data-container-id="${c.id}"]`);
         row?.querySelector(".review-queue-check").addEventListener("change", (e) => {
