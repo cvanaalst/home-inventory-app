@@ -4,7 +4,7 @@
 // blur, item quantity is write-through, item text fields are save-gated.
 
 import { queryItemSet, getAllItems, getItem, putItem, putItems, putMedia, cloneMedia, deleteMedia, makeRecord, makeId, getMedia, normalizeCode, nextCode } from "./db.js";
-import { toast, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox, resizeImageToBlob } from "./ui.js";
+import { toast, confirmDialog, attachSwipeActions, populateLocationSelect, escapeHtml, statusBadgeClass, openLightbox, resizeImageToBlob } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
 import { buildPrintReportHtml, formatFieldsSummary } from "./report.js";
@@ -146,6 +146,7 @@ export function initDetailView({ onDeleted, onOpenSettings }) {
   async function removePhoto(mediaId) {
     const removed = (container.attachments || []).find((a) => a.mediaId === mediaId);
     if (!removed) return;
+    if (!(await confirmDialog(t("capture.confirmRemovePhoto"), t("action.delete")))) return;
     await patchContainer({ attachments: (container.attachments || []).filter((a) => a.mediaId !== mediaId) });
     await renderPhotos();
     await renderIdentifyControls();
