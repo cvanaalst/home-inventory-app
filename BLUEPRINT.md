@@ -874,6 +874,17 @@ Apply the same to any background re-fetch that writes into the live cache.
 
 1. **Add `.nojekyll`** on GitHub Pages. Nothing in a hand-written static app needs Jekyll, and skipping it removed ~28 minutes from the deploy in this project (29 min → under 1).
 
+**UI (continued)** 28. **Don't call `setPointerCapture` on `pointerdown`.** Capturing eagerly retargets the `click` a plain tap produces onto whatever element captured it — not what the finger is actually over — which silently breaks every button living inside anything with a swipe/drag handler, since a tap that never dragged still gets rerouted. Defer capture until an actual drag is detected (e.g. >8px of movement); a tap that never moves then reaches its real target untouched. 29. **A parameter threaded through every call site can still be dead code if nothing ever reads it.** A shared `toast(message, kind)` helper accepted `kind` from every caller across the app for several releases, but the render function never applied it to a class or `role` — every toast looked and behaved identically regardless of severity, and nothing ever *failed*, because the function happily accepted the argument and just discarded it. Grep for whether a parameter changes an output, not just whether it's passed.
+
+**Charts** 30. **A hand-rolled SVG bar chart needs real headroom for its value labels, not a token gap.** Reserving a few px above the tallest possible bar for a label placed just above it — without accounting for the label's own glyph height — guarantees the tallest bar's number renders above `y="0"` and gets clipped by the SVG viewport. This isn't an edge case: some bar is *always* the max, so every chart's peak value clips. Size the top and bottom margins as named constants matched to the actual label font, not as leftover space implied by the bar-area height.
+
+**Sync (continued)** 31. **A record sitting in a *recoverable* trash is not yet deleted — its media must survive the whole window it can still be restored.** Gating media cleanup on `deletedAt` alone treats "trashed" and "gone" as the same state; a container merely awaiting restore had its photos purged both locally and on the remote the moment it was soft-deleted, with no way back. Gate destructive cleanup on the state that actually means "gone" (`restoredAt` set = recovered and safe to release under the old id, or an explicit `purgedAt` = permanently wiped), never on the tombstone timestamp alone.
+
+**share_target (receiving from the OS)** 32. **The service worker cannot `import` your data module.** `sw.js` registers as a classic script, not `type: "module"`, so a `share_target` handler that needs to write incoming files into IndexedDB cannot reuse `db.js` — it has to reimplement the store names, key paths and record shape by hand, directly in `sw.js`, and that duplicate now has to be kept in sync by discipline alone every time the real schema changes. Comment the duplication loudly at both ends, and keep the reimplementation as small as possible (write the raw file, stash its id, let the real app do everything else once it's running). 33. **There is no server, so the redirect at the end of the share handler *is* the return to the app.** `Response.redirect(url, 303)` after the POST isn't optional plumbing — it's the entire mechanism by which control, and a hash the app can route on, gets back to the user; the Web Share Target spec requires it for exactly this reason. 34. **Verify a service-worker-only code path with a real request, not a read of the source.** A raw `fetch()` POST against the registered worker, checking `responseType === "opaqueredirect"` as proof the redirect actually fired, then reading the written record back through the app's own `getMedia()`/`getMeta()`, is what actually proves the classic-script and ES-module halves agree on the schema — comparing the two files side by side does not catch a drift once one of them changes later.
+
+**iOS / Safari (continued)** 35. **A `<input type="file" accept="image/*">` with a `capture` attribute forces the camera directly on iOS Safari**, skipping the OS picker's own "Photo Library" option entirely. `accept="image/*"` alone already offers both "Take Photo" and "Photo Library" in the native action sheet — only add `capture` if the intent is specifically to force the camera and remove the library option; never add it by default just because a capture flow feels camera-first.
+
+**Release (continued)** 36. **A successful `git push` does not mean the site is live.** On GitHub Pages' auto-deploy, the build and deploy run as separate jobs; the build (packaging the files) can succeed while the deploy fails on its own — observed here as a failure at "Set up job", a transient scheduling hiccup on GitHub's side, not a content problem — leaving the previous build serving with no error surfaced anywhere in local tooling. Verify the actual deployed file (`curl` the live `version.js`) or the deployment's status via the GitHub API/Actions tab after every release-worthy push, and re-push (an empty commit is enough to retrigger) if it's stuck on a failed deploy.
 
 ## 14. App brief — fill this in
 
@@ -1174,6 +1185,8 @@ Each of these is invisible on the machine that built the release, which is exact
 
 - **Cap and trim on write.** Length limits belong in the normaliser, so nothing downstream has to defend against a 40 KB "title".
 
+- **A field that "must" be unique needs either a real check or an honest admission that it isn't enforced.** If the storage layer doesn't guarantee it, every write path that creates or renames that field has to re-derive and re-check uniqueness against the current full set itself — and it's easy for that check to exist at three call sites and quietly not the fourth. Either centralise it, or write down clearly that it's UI-only and enumerate every place that has to remember.
+
 ### 19.3 Sync & conflict
 
 - **Tombstones are the delete mechanism.** A hard delete cannot propagate — the other device re-adds it. Every delete is a write.
@@ -1246,6 +1259,8 @@ A single `tests.html` that imports the real modules and runs assertions in the b
 
 - **Clean up after seeding.** Test data, preference changes and stored keys all outlive the check that created them.
 
+- **A push succeeding is not the same as a deploy succeeding.** The build and deploy stages of an auto-deploy pipeline (e.g. GitHub Pages) can fail independently — the build can package your files correctly while the deploy step fails for unrelated infra reasons. Check the actual live file or the deployment's own status after every release-worthy push, not just that the push itself returned success.
+
 ### 19.8 Interaction patterns worth copying
 
 - **Undo-toast for reversible destruction, confirm-dialog for irreversible.** And defer the actual write to the toast's expiry, so an undone delete never happens at all. Above a certain scale (bulk actions), switch to a dialog: "did I mean that?" cannot be answered from something already fading.
@@ -1262,9 +1277,21 @@ A single `tests.html` that imports the real modules and runs assertions in the b
 
 - **`.ics` is the only background reminder a serverless app has.** Export `RRULE` and let the calendar own it.
 
-- **On iOS, prefer paste over Share Target.** Safari does not implement Web Share Target and shows no sign of doing so.
+- **On iOS, prefer paste over Share Target, and don't rely on the manifest `shortcuts` menu either.** Safari implements neither Web Share Target (registering the PWA as an OS share destination) nor the long-press quick-actions menu, even though it installs the PWA fine and desktop Safari 17.4+ *does* support `shortcuts`. Ship both anyway on other platforms — they're a manifest entry plus a small amount of routing — but never make either the only path to a piece of functionality, and say so in Help.
 
-### 19.9 Documentation that stays useful
+- **Route special entry points once, at boot, before normal tab routing.** A manifest shortcut or a share-target redirect needs to land on a specific tab *and* trigger something the normal hash-based router has no room for ("show this tab AND open a form"). Handle both in one function that runs before the router's usual fallback and reports whether it took over; nothing inside the app should ever navigate to either hash itself — they only ever arrive from outside.
+
+- **The app badge is the one notification-like signal every platform actually shows, with no push infrastructure and no permission prompt.** `navigator.setAppBadge()` on a plain count of whatever "unfinished" means for the app (drafts awaiting confirmation, items needing review) costs one function called from every router entry point.
+
+### 19.9 Performance at scale
+
+- **Hydrate once per render, not once per query.** A convenience wrapper like `queryItems(opts)` conveniently wraps `getAllItems()` — but a render that needs several different slices of the same data (counts, filtered results, cross-references) should call `getAllItems()` once and run the pure query/filter engine against that one in-memory array multiple times. Each call to the convenience wrapper re-reads and re-hydrates the *entire* store; on a few thousand records this is the actual difference between an instant render and a visible stutter on every keystroke of a live search.
+
+- **Construct expensive comparison machinery once, not per comparison.** `new Intl.Collator()` builds real Unicode collation tables on every call — reused across a whole sort, it is 10–100x faster than reconstructing it inside the comparator. A module-level `const COLLATOR = new Intl.Collator(...)`, not one per `localeCompare` call.
+
+- **Skip collation entirely for fields that can never need it.** ISO-8601 timestamps sort correctly with a plain `<`/`>` string comparison — routing them through locale-aware collation is pure overhead for text guaranteed never to contain anything but ASCII digits and hyphens.
+
+### 19.10 Documentation that stays useful
 
 Comment the **decision**, not the mechanism. `// loop over records` earns nothing; *"counting whole steps from the anchor, because clamping is lossy and stepping from the* *clamped result migrates the date permanently"* is the reason the next person does not "simplify" it back into a bug. Every non-obvious line in this project has a comment naming the failure it prevents — and this document exists so those reasons outlive the code they sit in.
 
