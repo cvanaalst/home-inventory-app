@@ -53,7 +53,7 @@ async function loadPrefs() {
   const theme = await getMeta("theme", "auto");
   const density = await getMeta("density", "comfortable");
   if (lang === "nl" || lang === "en") state.lang = lang;
-  if (["auto", "dark", "light", "midnight", "paper"].includes(theme)) state.theme = theme;
+  if (["auto", "dark", "light", "midnight", "paper", "industrial"].includes(theme)) state.theme = theme;
   if (["comfortable", "compact"].includes(density)) state.density = density;
 }
 

@@ -103,6 +103,35 @@
   --type-item: #86198f;
 }
 
+:root[data-theme="industrial"] {
+  color-scheme: dark;
+  --bg: #0d0f11;
+  --surface: #151719;
+  --surface-raised: #1c1f21;
+  --border: #2a2d30;
+  --text: #e8e9ea;
+  --text-secondary: #8b9096;
+  --text-tertiary: #5a5f64;
+  --accent: #f0a828;
+  --accent-text: #1a1200;
+  --danger: #f0645c;
+  --success: #39d17a;
+  --warning: #f0a828;
+  --tag-bg: #1c1f21;
+  --tag-text: #f0a828;
+  --type-location: #6b93ac;
+  --type-container: #f0a828;
+  --type-item: #ab9c6e;
+  /* Sharp corners, monospace throughout — the one theme that overrides
+     shape/type tokens as well as color, per the industrial dashboard
+     mockup direction. Reuses the existing system-mono stack rather than
+     adding a webfont. */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --font-display: var(--font-mono);
+  --font-body: var(--font-mono);
+}
+
 :root {
   --radius-sm: 6px;
   --radius-md: 12px;
@@ -773,6 +802,20 @@ textarea {
 .chip.active {
   background: var(--accent);
   color: var(--accent-text);
+}
+
+/* .badge/.chip hardcode a pill radius rather than using --radius-*, so the
+   industrial theme's sharp-corner language needs an explicit override
+   here — the global token swap above doesn't reach them. Native checkboxes
+   are otherwise unstyled app-wide; industrial is the only theme that gives
+   them an explicit accent color, matching the mockups' unified checkbox. */
+[data-theme="industrial"] .badge,
+[data-theme="industrial"] .chip {
+  border-radius: 0;
+}
+
+[data-theme="industrial"] input[type="checkbox"] {
+  accent-color: var(--accent);
 }
 
 .section-label {
