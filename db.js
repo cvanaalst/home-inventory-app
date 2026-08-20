@@ -686,7 +686,7 @@ function locationPath(location) {
   return [location.room, location.storage, location.section, location.title].filter(Boolean).join(" › ");
 }
 
-/** Next free "<PREFIX>-NNN" code given the codes already in use. Replaces
+/** Next free "<PREFIX>-NNNN" code given the codes already in use. Replaces
  * the legacy server's /containers/next-code endpoint. */
 function nextCode(existingCodes, prefix) {
   const p = (prefix || "BOX").toUpperCase().replace(/[^A-Z0-9]/g, "") || "BOX";
@@ -696,14 +696,14 @@ function nextCode(existingCodes, prefix) {
     const m = re.exec(code);
     if (m) highest = Math.max(highest, Number.parseInt(m[1], 10));
   }
-  return `${p}-${String(highest + 1).padStart(3, "0")}`;
+  return `${p}-${String(highest + 1).padStart(4, "0")}`;
 }
 
 const RANGE_MAX = 200;
 
-/** "<PREFIX>-NNN" for every number in an inclusive range — the batch
+/** "<PREFIX>-NNNN" for every number in an inclusive range — the batch
  * counterpart to nextCode, for bulk-creating a run of container codes at
- * once (e.g. prefix "BOX", 6, 20 -> ["BOX-006", ..., "BOX-020"]). Never
+ * once (e.g. prefix "BOX", 6, 20 -> ["BOX-0006", ..., "BOX-0020"]). Never
  * throws: invalid input normalizes to an empty list, same contract as
  * expandNameRange. Doesn't check the caller's existing codes for
  * collisions — codes aren't unique-constrained at the storage layer (see
@@ -715,7 +715,7 @@ function codeRange(prefix, from, to, max = RANGE_MAX) {
   const end = Number.parseInt(to, 10);
   if (!Number.isFinite(start) || !Number.isFinite(end) || start < 1 || end < start) return [];
   const count = Math.min(end - start + 1, max);
-  return Array.from({ length: count }, (_, i) => `${p}-${String(start + i).padStart(3, "0")}`);
+  return Array.from({ length: count }, (_, i) => `${p}-${String(start + i).padStart(4, "0")}`);
 }
 
 /** Expands a "{n}"-containing name pattern over an inclusive numeric range

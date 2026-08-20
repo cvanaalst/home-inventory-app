@@ -343,15 +343,15 @@ assertEqual(db.versionKey("abc", 12), "abc#000012", "padding is stable across se
 section("locationPath / nextCode");
 assertEqual(db.locationPath({ room: "Office", storage: "Cupboard", section: "", title: "Shelf 1" }), "Office › Cupboard › Shelf 1", "blank levels are skipped, not rendered as empty segments");
 assertEqual(db.locationPath(null), "", "a missing location renders as an empty string, not a crash — a container can point at a deleted location");
-assertEqual(db.nextCode([], "BOX"), "BOX-001", "the first code for a prefix starts at 001");
-assertEqual(db.nextCode(["BOX-001", "BOX-002", "BOX-010"], "BOX"), "BOX-011", "the next code continues from the highest existing number, not the count of codes");
-assertEqual(db.nextCode(["BOX-005", "BAG-002"], "BAG"), "BAG-003", "codes under a different prefix are ignored");
-assertEqual(db.nextCode(["box-9"], "box"), "BOX-010", "prefix matching is case-insensitive since codes are always normalized uppercase");
+assertEqual(db.nextCode([], "BOX"), "BOX-0001", "the first code for a prefix starts at 0001");
+assertEqual(db.nextCode(["BOX-001", "BOX-002", "BOX-010"], "BOX"), "BOX-0011", "the next code continues from the highest existing number, not the count of codes — and parses a shorter-padded existing code just fine");
+assertEqual(db.nextCode(["BOX-005", "BAG-002"], "BAG"), "BAG-0003", "codes under a different prefix are ignored");
+assertEqual(db.nextCode(["box-9"], "box"), "BOX-0010", "prefix matching is case-insensitive since codes are always normalized uppercase");
 
 section("codeRange");
-assertEqual(db.codeRange("BOX", 6, 8), ["BOX-006", "BOX-007", "BOX-008"], "an inclusive range of prefixed, zero-padded codes, same padding as nextCode");
-assertEqual(db.codeRange("box", "3", "3"), ["BOX-003"], "prefix is uppercased and a single-value range (from === to) still produces one code");
-assertEqual(db.codeRange("BOX", 998, 1000), ["BOX-998", "BOX-999", "BOX-1000"], "padding is a minimum width, not a cap — a 4-digit number is never truncated");
+assertEqual(db.codeRange("BOX", 6, 8), ["BOX-0006", "BOX-0007", "BOX-0008"], "an inclusive range of prefixed, zero-padded codes, same padding as nextCode");
+assertEqual(db.codeRange("box", "3", "3"), ["BOX-0003"], "prefix is uppercased and a single-value range (from === to) still produces one code");
+assertEqual(db.codeRange("BOX", 9998, 10000), ["BOX-9998", "BOX-9999", "BOX-10000"], "padding is a minimum width, not a cap — a 5-digit number is never truncated");
 assertEqual(db.codeRange("BOX", 5, 2), [], "a 'to' before 'from' produces nothing rather than counting backwards unexpectedly");
 assertEqual(db.codeRange("BOX", 0, 5), [], "a 'from' below 1 produces nothing — container numbering starts at 1, same as nextCode");
 assertEqual(db.codeRange("BOX", "abc", 5), [], "a non-numeric bound produces nothing rather than NaN-based codes");
