@@ -493,6 +493,16 @@ button {
   padding-bottom: 8px;
 }
 
+/* Separates a destructive action from the ordinary utility buttons
+   stacked above it (e.g. container detail: print/copy vs. delete) — those
+   were previously just more .btn-block rows in the same unbroken stack,
+   with nothing setting the irreversible one apart. */
+.danger-zone {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
 .field-label {
   font-size: 13px;
   color: var(--text-secondary);
@@ -1132,10 +1142,13 @@ textarea {
    Insights: stat tiles, category bars, activity chart, tag cloud
    ============================================================ */
 
+/* Fixed 5-up: index.html always renders exactly 5 stat tiles, so a fixed
+   column count is correct here — auto-fit with a 3-per-row minmax left an
+   orphaned, unfilled gap next to the trailing 2 on row two. */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
 }
 
 .stat-tile {
@@ -1143,7 +1156,7 @@ textarea {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 14px 8px;
+  padding: 12px 4px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -1152,13 +1165,14 @@ textarea {
 
 .stat-value {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
 }
 
 .stat-label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-secondary);
+  line-height: 1.25;
 }
 
 .category-bars {

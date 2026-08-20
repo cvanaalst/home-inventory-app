@@ -2,7 +2,7 @@
 // second list-like view with its own module (BLUEPRINT.md §4) — the query
 // engine is shared, the row rendering and singleton DOM state are not.
 
-import { getAllItems, queryItemSet, putItem, locationPath } from "./db.js";
+import { getAllItems, queryItemSet, putItem, locationPath, getMedia } from "./db.js";
 import { escapeHtml, skeletonGate } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 
@@ -27,6 +27,9 @@ export function initItemsView({ onOpenContainer }) {
   // first write resolves land on 5 then 6, not 5 then 5 again (same
   // pattern as view-detail.js's patchItem).
   let currentResults = [];
+  // Object URLs for row thumbnails, revoked and rebuilt on every render —
+  // same pattern as view-search.js's hydrateThumbnails().
+  const thumbUrls = new Set();
 
   function patchQuantity(id, quantity) {
     const idx = currentResults.findIndex((i) => i.id === id);
@@ -55,6 +58,11 @@ export function initItemsView({ onOpenContainer }) {
     const container = containersById.get((item.linkedIds || [])[0]);
     const loc = container ? locationsById.get((container.linkedIds || [])[0]) : null;
     const subParts = [container ? container.code : "", loc ? locationPath(loc) : "", item.category, item.state === "draft" ? t("item.draft") : ""].filter(Boolean);
+    // Items have no photos of their own — this is the parent container's
+    // first photo, shown as context, same as containerRowHtml() in
+    // view-search.js. Hidden in compact density along with .row-sub.
+    const firstPhoto = (container?.attachments || [])[0];
+    const thumb = firstPhoto ? `<span class="row-thumb" data-media-id="${escapeHtml(firstPhoto.mediaId)}"><img alt="" /></span>` : "";
     // The row's own quantity used to only be a "N× " prefix on the title —
     // read-only, and adjusting it meant drilling into the container first.
     // That's the single most common action on an item ("I just used 3 of
@@ -62,6 +70,7 @@ export function initItemsView({ onOpenContainer }) {
     // nested inside it, so tapping it never triggers navigation.
     return `
       <div class="row-card items-row" data-item-id="${item.id}">
+        ${thumb}
         <button type="button" class="row-main-btn" data-container-id="${container ? container.id : ""}">
           <span class="row-main">
             <span class="row-title">${escapeHtml(item.title)}</span>
@@ -95,6 +104,22 @@ export function initItemsView({ onOpenContainer }) {
       const current = currentResults.find((i) => i.id === itemId);
       if (next !== current?.quantity) patchQuantity(itemId, next);
     });
+  }
+
+  /** Fills every .row-thumb img left empty by rowHtml(). Same pattern as
+   * view-search.js's hydrateThumbnails(). */
+  async function hydrateThumbnails(root) {
+    for (const url of thumbUrls) URL.revokeObjectURL(url);
+    thumbUrls.clear();
+    const tiles = root.querySelectorAll("[data-media-id]");
+    for (const tile of tiles) {
+      const rec = await getMedia(tile.getAttribute("data-media-id"));
+      if (!rec || !rec.blob) continue;
+      const url = URL.createObjectURL(rec.blob);
+      thumbUrls.add(url);
+      const img = tile.querySelector("img");
+      if (img) img.src = url;
+    }
   }
 
   async function refresh() {
@@ -133,6 +158,7 @@ export function initItemsView({ onOpenContainer }) {
         else el.disabled = true;
       });
       listEl.querySelectorAll(".items-row").forEach(wireQtyStepper);
+      hydrateThumbnails(listEl);
     } finally {
       skeleton.end(seq);
     }
