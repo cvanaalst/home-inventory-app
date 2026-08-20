@@ -9,7 +9,7 @@ const nl = `
 Voorraad is een app om bij te houden wat er in je containers (dozen, bakken, laden) zit en waar die containers staan. Alles werkt volledig offline, in je browser — een internetverbinding is alleen nodig voor AI-herkenning en synchroniseren.
 
 ## Locaties, containers, items
-Een **locatie** is een plek in huis: ruimte, opslagplek, sectie en optioneel een naam — bijvoorbeeld "Bureau Chris › Hoog Rek Links › Plank 3". Een **container** is een doos of bak met een code (zoals BOX-001) die aan zo'n locatie hangt. Een **item** is één soort spullen in die container, met een aantal, een categorie, en optioneel een link en losse specs (extra veld/waarde-paren).
+Een **locatie** is een plek in huis: ruimte, opslagplek, sectie en optioneel een naam — bijvoorbeeld "Bureau Chris › Hoog Rek Links › Plank 3". Een **container** is een doos of bak met een code (zoals BOX-0001) die aan zo'n locatie hangt. Een **item** is één soort spullen in die container, met een aantal, een categorie, en optioneel een link en losse specs (extra veld/waarde-paren).
 
 ## Een container vastleggen
 Het tabblad Vastleggen opent altijd met "Kies container" — kies een bestaande container of maak direct een nieuwe aan (zonder dat je meteen een foto nodig hebt). Voeg foto's toe met "Foto's toevoegen": je kunt zowel een nieuwe foto maken als een bestaande uit je fotobibliotheek kiezen. Staat "Ook AI laten herkennen" aan, dan komt de container in de wachtrij van het tabblad Controleren.
@@ -27,7 +27,8 @@ Open een container om de code te hernoemen, naam/locatie/notities aan te passen,
 Het tabblad Zoeken doorzoekt items, containers en locaties tegelijk. Zonder zoekterm blader je door alle containers, gegroepeerd per locatie; filter op ruimte, ruimte + opslagplek, of ruimte + opslagplek + sectie, en/of op categorie. De camera-knop schakelt naar een fotoweergave met een tegel per foto — een container met meerdere foto's toont ze allemaal, niet alleen de eerste. Het tabblad Items laat alle items zien met filters op categorie en status, een sorteervolgorde naar keuze, en een stappen-teller om het aantal direct aan te passen.
 
 ## Locaties en containers in bulk aanmaken
-Onder Meer › Locaties beheer je de hiërarchie van ruimte, opslagplek, sectie en naam; "Maak een reeks" maakt in één keer een doorlopende reeks aan (bijvoorbeeld "Plank {n}" van 1 tot 10). Onder Meer › Containers in bulk aanmaken maak je op dezelfde manier in één keer een reeks containercodes aan (bijvoorbeeld BOX-006 t/m BOX-020), automatisch doorgenummerd vanaf de eerstvolgende vrije — zonder naam of locatie, die stel je later per container in.
+Onder Meer › Locaties beheer je de hiërarchie van ruimte, opslagplek, sectie en naam; "Maak een reeks" maakt in één keer een doorlopende reeks aan (bijvoorbeeld "Plank {n}" van 1 tot 10). Onder Meer › Containers in bulk aanmaken maak je op dezelfde manier in één keer een reeks containercodes aan (bijvoorbeeld BOX-0006 t/m BOX-0020), automatisch doorgenummerd vanaf de eerstvolgende vrije — zonder naam of locatie, die stel je later per container in.
+
 
 ## Labels afdrukken
 Onder Meer › Labels selecteer je containers en kies je een velformaat (een aantal Avery-formaten of gewoon blanco papier). Heb je al een deel van een vel gebruikt? Vul in hoeveel labels je wilt overslaan — de nieuwe labels beginnen na die posities, zodat je geen half vel hoeft weg te gooien.
@@ -56,7 +57,7 @@ const en = `
 Inventory is an app for tracking what's inside your containers (boxes, bins, drawers) and where those containers live. Everything works fully offline, in your browser — an internet connection is only needed for AI identification and syncing.
 
 ## Locations, containers, items
-A **location** is a place in your home: room, storage, section, and an optional name — for example "Bureau Chris › Hoog Rek Links › Plank 3". A **container** is a box or bin with a code (like BOX-001) that belongs to a location. An **item** is one kind of thing in that container, with a quantity, a category, and optionally a link and freeform specs (extra field/value pairs).
+A **location** is a place in your home: room, storage, section, and an optional name — for example "Bureau Chris › Hoog Rek Links › Plank 3". A **container** is a box or bin with a code (like BOX-0001) that belongs to a location. An **item** is one kind of thing in that container, with a quantity, a category, and optionally a link and freeform specs (extra field/value pairs).
 
 ## Capturing a container
 The Capture tab always opens on "Choose container" — pick an existing one or create a new one right away, no photo required first. Add photos with "Add photos": you can either take a new one or pick an existing one from your photo library. If "Also run AI recognition" is on, the container gets added to the Review tab's queue.
@@ -74,7 +75,7 @@ Open a container to rename its code, edit its name/location/notes, add or remove
 The Search tab searches items, containers, and locations at once. With no search term, you browse all containers, grouped by location; filter by room, room + storage, or room + storage + section, and/or by category. The camera button switches to a photo view with one tile per photo — a container with several photos shows all of them, not just the first. The Items tab lists every item with category and state filters, a choice of sort order, and a stepper to adjust quantity directly.
 
 ## Bulk-creating locations and containers
-Under More › Locations you manage the room/storage/section/name hierarchy; "Create a range" creates a run of them at once (e.g. "Shelf {n}" from 1 to 10). Under More › Bulk-create containers you do the same for container codes (e.g. BOX-006 through BOX-020), auto-numbered from the next free one — with no name or location yet, which you set later per container.
+Under More › Locations you manage the room/storage/section/name hierarchy; "Create a range" creates a run of them at once (e.g. "Shelf {n}" from 1 to 10). Under More › Bulk-create containers you do the same for container codes (e.g. BOX-0006 through BOX-0020), auto-numbered from the next free one — with no name or location yet, which you set later per container.
 
 ## Printing labels
 Under More › Labels you select containers and pick a sheet format (a handful of Avery formats, or plain blank paper). Already used part of a sheet? Enter how many labels to skip — the new ones start right after those positions, so you don't have to throw away a half-used sheet.

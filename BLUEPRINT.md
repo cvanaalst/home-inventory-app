@@ -886,6 +886,8 @@ Apply the same to any background re-fetch that writes into the live cache.
 
 **Release (continued)** 36. **A successful `git push` does not mean the site is live.** On GitHub Pages' auto-deploy, the build and deploy run as separate jobs; the build (packaging the files) can succeed while the deploy fails on its own — observed here as a failure at "Set up job", a transient scheduling hiccup on GitHub's side, not a content problem — leaving the previous build serving with no error surfaced anywhere in local tooling. Verify the actual deployed file (`curl` the live `version.js`) or the deployment's status via the GitHub API/Actions tab after every release-worthy push, and re-push (an empty commit is enough to retrigger) if it's stuck on a failed deploy.
 
+**Sync (continued)** 37. **A "wipe all data" feature can be silently undone by the very next sync.** `store.clear()` on the local items store leaves zero trace a record ever existed — to the merge engine, "absent locally" is indistinguishable from "never synced yet," so the next Sync pulls every wiped record straight back down from the remote, unnoticed, and a bulk-recreate afterward using the same names/codes just produces duplicates alongside the resurrected originals. A full wipe has to tombstone every record — the same shape a single "delete forever" already produces (content blanked, `deletedAt`/`purgedAt` set) — rather than hard-deleting the store, since only a tombstone reliably wins a merge regardless of timestamp. Reproduce the fix with the real merge function before trusting it: feed it a tombstoned local record against a stale-but-live remote copy and confirm the tombstone wins.
+
 ## 14. App brief — fill this in
 
 > This is the only section that changes per project. Be concrete; vagueness here becomes churn later.
@@ -1190,6 +1192,8 @@ Each of these is invisible on the machine that built the release, which is exact
 ### 19.3 Sync & conflict
 
 - **Tombstones are the delete mechanism.** A hard delete cannot propagate — the other device re-adds it. Every delete is a write.
+
+- **"Every delete is a write" includes bulk deletes.** A "reset everything" / "wipe all data" feature is the easiest place to break this rule by accident — `store.clear()` feels like the obviously correct way to nuke local data, and it is, right up until sync exists. Route a full wipe through the same per-record tombstone path as a single delete, never around it.
 
 - **Tombstone always wins** in the merge, whatever the timestamps say, or a resurrection race is unwinnable.
 
