@@ -234,6 +234,27 @@ section("makeRecord");
   assertTrue(r1.id !== r2.id, "two records made separately never share an id");
 }
 
+section("purgeContentFields");
+{
+  const location = { id: "l1", type: "location", title: "Shelf 1", room: "Office", storage: "Cupboard", section: "Left", comment: "note", tags: ["a"], pinned: true, linkedIds: ["x"], fields: [{ id: "1", key: "k", value: "v" }], links: [{ id: "1", url: "https://x" }], attachments: [{ mediaId: "m1" }], deletedAt: null };
+  const wiped = db.purgeContentFields(location);
+  assertEqual(wiped.title, "", "title is cleared");
+  assertEqual(wiped.room, "", "location-only fields (room/storage/section) are cleared for a location record");
+  assertEqual(wiped.storage, "");
+  assertEqual(wiped.section, "");
+  assertEqual(wiped.attachments, [], "attachments are cleared — purging must not leave a dangling reference to a deleted media blob");
+  assertEqual(wiped.id, "l1", "the envelope (id) survives — a purge is a tombstone, not a removal");
+  assertEqual(wiped.deletedAt, null, "purgeContentFields never touches deletedAt/purgedAt itself — callers set those, since Trash and a full wipe set them differently");
+}
+{
+  const container = { id: "c1", type: "container", title: "t", code: "BOX-001", tags: [], pinned: false, linkedIds: [], fields: [], links: [], attachments: [] };
+  assertEqual(db.purgeContentFields(container).code, "", "a container's code is cleared too — otherwise a purged container could still collide with a freshly created one reusing the same code");
+}
+{
+  const item = { id: "i1", type: "item", title: "t", category: "tools", tags: [], pinned: false, linkedIds: [], fields: [], links: [], attachments: [] };
+  assertEqual(db.purgeContentFields(item).category, "", "an item's category is cleared");
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // query engine
 // ══════════════════════════════════════════════════════════════════════

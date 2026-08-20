@@ -259,12 +259,36 @@ async function softDeleteItem(id) {
   return putItem({ ...record, deletedAt: nowIso() });
 }
 
-async function clearItems() {
-  const db = await openDB();
-  const tx = db.transaction(["items", "versions"], "readwrite");
-  tx.objectStore("items").clear();
-  tx.objectStore("versions").clear();
-  await txDone(tx);
+/** PURE. Returns `record` with all its domain content cleared but its
+ * envelope (id, timestamps, tombstone markers) untouched — the "delete
+ * forever" shape: a bare tombstone survives so the deletion still
+ * propagates on sync and the record can never resurrect, but nothing it
+ * once held does. Callers decide deletedAt/purgedAt themselves — this
+ * only clears content, since the two current callers set those envelope
+ * fields differently (Trash purges an already-tombstoned record; a full
+ * data wipe tombstones a live one on the spot). */
+function purgeContentFields(record) {
+  const wiped = {
+    ...record,
+    title: "",
+    comment: "",
+    tags: [],
+    pinned: false,
+    linkedIds: [],
+    fields: [],
+    links: [],
+    attachments: [],
+  };
+  if (record.type === "location") {
+    wiped.room = "";
+    wiped.storage = "";
+    wiped.section = "";
+  } else if (record.type === "container") {
+    wiped.code = "";
+  } else if (record.type === "item") {
+    wiped.category = "";
+  }
+  return wiped;
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -294,6 +318,16 @@ async function clearVersions(recordId) {
   const store = tx.objectStore("versions");
   const keys = await reqToPromise(store.getAllKeys(versionKeyRange(recordId)));
   keys.forEach((k) => store.delete(k));
+  await txDone(tx);
+}
+
+/** Wipes the WHOLE revision-history store, not per-record. Safe as a raw
+ * clear (unlike the items store) because versions are local-only and never
+ * synced — there is no remote copy for a hard delete here to desync from. */
+async function clearAllVersions() {
+  const db = await openDB();
+  const tx = db.transaction("versions", "readwrite");
+  tx.objectStore("versions").clear();
   await txDone(tx);
 }
 
@@ -834,10 +868,11 @@ export {
   queryItems,
   getDeletedItems,
   softDeleteItem,
-  clearItems,
+  purgeContentFields,
   // revision history
   getVersions,
   clearVersions,
+  clearAllVersions,
   getAllVersions,
   versionKey,
   versionKeyRange,

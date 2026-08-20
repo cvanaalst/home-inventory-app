@@ -2,7 +2,7 @@
 // and wired directly in app.js (needed at boot, before any view exists);
 // everything here is view-local and needs fresh data on every open.
 
-import { getStorageEstimate, requestPersistentStorage, getMeta, setMeta, clearItems, clearMedia, getAllVersions, getAllItems, diffRecords } from "./db.js";
+import { getStorageEstimate, requestPersistentStorage, getMeta, setMeta, putItems, clearMedia, clearAllVersions, getAllVersions, getAllItems, purgeContentFields, diffRecords } from "./db.js";
 import { t } from "./i18n.js";
 import { toast, confirmDialog, escapeHtml } from "./ui.js";
 import { formatHistoryValue } from "./report.js";
@@ -356,7 +356,24 @@ export function initSettingsView() {
     // A full wipe touches items/versions/media only — the meta store (theme,
     // language, density, sync client ID) is deliberately left untouched, so
     // "fresh start" doesn't also mean reconfiguring the app from scratch.
-    await clearItems();
+    //
+    // This must tombstone every record (purgeContentFields + deletedAt +
+    // purgedAt), NOT hard-delete the items store — a raw store.clear() is
+    // indistinguishable from "this device has just never synced yet" to
+    // merge.js's resolveRecord(), so anyone with Drive sync configured
+    // would have every wiped record handed straight back on the very next
+    // Sync. A tombstone always wins a merge regardless of timestamp, so
+    // this is what actually makes the wipe itself propagate and stick.
+    const now = new Date().toISOString();
+    const allRecords = await getAllItems();
+    const wiped = allRecords.map((r) => ({
+      ...purgeContentFields(r),
+      deletedAt: r.deletedAt || now,
+      purgedAt: now,
+      updatedAt: now,
+    }));
+    await putItems(wiped);
+    await clearAllVersions();
     await clearMedia();
     // Every view's in-memory state (containersById maps, cached lists, etc.)
     // is now stale in ways no single refresh() call fully unwinds — a reload

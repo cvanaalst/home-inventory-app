@@ -4,7 +4,7 @@
 // Delete forever wipes content but keeps the bare tombstone, so the
 // deletion still propagates and the record can never resurrect.
 
-import { getDeletedItems, putItem, makeRecord, deleteMedia, cloneMedia, locationPath } from "./db.js";
+import { getDeletedItems, putItem, makeRecord, deleteMedia, cloneMedia, locationPath, purgeContentFields } from "./db.js";
 import { toast, confirmDialog, escapeHtml } from "./ui.js";
 import { t } from "./i18n.js";
 
@@ -57,28 +57,7 @@ export function initTrashView() {
 
     for (const att of record.attachments || []) await deleteMedia(att.mediaId);
 
-    const wiped = {
-      ...record,
-      title: "",
-      comment: "",
-      tags: [],
-      pinned: false,
-      linkedIds: [],
-      fields: [],
-      links: [],
-      attachments: [],
-      purgedAt: new Date().toISOString(),
-    };
-    if (record.type === "location") {
-      wiped.room = "";
-      wiped.storage = "";
-      wiped.section = "";
-    } else if (record.type === "container") {
-      wiped.code = "";
-    } else if (record.type === "item") {
-      wiped.category = "";
-    }
-    await putItem(wiped);
+    await putItem({ ...purgeContentFields(record), purgedAt: new Date().toISOString() });
 
     currentRecords = currentRecords.filter((r) => r.id !== record.id);
     render();
