@@ -125,7 +125,6 @@ const dict = {
     "search.photoPrev": "Vorige foto",
     "search.photoNext": "Volgende foto",
     "search.noPhotos": "Geen containers met foto's.",
-    "search.newContainer": "＋ Nieuwe container (zonder foto)",
     "search.locationFilterAllRooms": "Alle ruimtes",
     "search.locationFilterAllStorage": "Alle opbergplekken",
     "search.locationFilterAllSections": "Alle secties",
@@ -157,6 +156,8 @@ const dict = {
     "detail.itemsCount": "Items ({n})",
     "detail.itemsEmpty": "Nog geen items — voeg er hieronder een toe.",
     "detail.notFound": "Container niet gevonden.",
+    "detail.navPrev": "Vorige container",
+    "detail.navNext": "Volgende container",
 
     "item.description": "Omschrijving",
     "item.category": "Categorie",
@@ -466,7 +467,6 @@ const dict = {
     "search.photoPrev": "Previous photo",
     "search.photoNext": "Next photo",
     "search.noPhotos": "No containers with photos.",
-    "search.newContainer": "＋ New container (no photo)",
     "search.locationFilterAllRooms": "All rooms",
     "search.locationFilterAllStorage": "All storage",
     "search.locationFilterAllSections": "All sections",
@@ -498,6 +498,8 @@ const dict = {
     "detail.itemsCount": "Items ({n})",
     "detail.itemsEmpty": "No items yet — add one below.",
     "detail.notFound": "Container not found.",
+    "detail.navPrev": "Previous container",
+    "detail.navNext": "Next container",
 
     "item.description": "Description",
     "item.category": "Category",

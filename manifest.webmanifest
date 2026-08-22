@@ -16,13 +16,6 @@
   ],
   "shortcuts": [
     {
-      "name": "Nieuwe container",
-      "short_name": "Nieuw",
-      "description": "Snel een nieuwe container aanmaken",
-      "url": "./#new-container",
-      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
       "name": "Foto vastleggen",
       "short_name": "Vastleggen",
       "description": "Direct naar foto's maken voor een container",

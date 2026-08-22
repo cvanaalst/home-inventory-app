@@ -383,8 +383,8 @@ export async function resizeImageToBlob(file, maxDim = RESIZE_MAX_DIM, quality =
 }
 
 /** Fills a <select> with "— no location —" + every location's full path,
- * sorted. Used identically by the new-container form, the container-detail
- * location field, and the search view's browse filter. */
+ * sorted. Used identically by Capture's new-container form, the
+ * container-detail location field, and the copy-to-new-container form. */
 export function populateLocationSelect(selectEl, locations, selectedId, { noneLabel = "— " } = {}) {
   const sorted = [...locations].sort((a, b) => locationPath(a).localeCompare(locationPath(b), undefined, { numeric: true, sensitivity: "base" }));
   selectEl.innerHTML = "";

@@ -24,7 +24,7 @@ Open een container om de code te hernoemen, naam/locatie/notities aan te passen,
 - de container verwijderen
 
 ## Zoeken en filteren
-Het tabblad Zoeken doorzoekt items, containers en locaties tegelijk. Zonder zoekterm blader je door alle containers, gegroepeerd per locatie; filter op ruimte, ruimte + opslagplek, of ruimte + opslagplek + sectie, en/of op categorie. De camera-knop schakelt naar een fotoweergave met een tegel per foto — een container met meerdere foto's toont ze allemaal, niet alleen de eerste. Het tabblad Items laat alle items zien met filters op categorie en status, een sorteervolgorde naar keuze, en een stappen-teller om het aantal direct aan te passen.
+Het tabblad Zoeken doorzoekt items, containers en locaties tegelijk. Zonder zoekterm blader je door alle containers, gegroepeerd per locatie; filter op ruimte, ruimte + opslagplek, of ruimte + opslagplek + sectie, en/of op categorie. De camera-knop schakelt naar een fotoweergave met een tegel per foto — een container met meerdere foto's toont ze allemaal, niet alleen de eerste. Open je een container vanuit een gefilterde lijst, dan verschijnen bovenaan pijltjes om naar de vorige of volgende container in diezelfde lijst te springen, zonder terug te gaan naar Zoeken. Het tabblad Items laat alle items zien met filters op categorie en status, een sorteervolgorde naar keuze, en een stappen-teller om het aantal direct aan te passen.
 
 ## Locaties en containers in bulk aanmaken
 Onder Meer › Locaties beheer je de hiërarchie van ruimte, opslagplek, sectie en naam; "Maak een reeks" maakt in één keer een doorlopende reeks aan (bijvoorbeeld "Plank {n}" van 1 tot 10). Onder Meer › Containers in bulk aanmaken maak je op dezelfde manier in één keer een reeks containercodes aan (bijvoorbeeld BOX-0006 t/m BOX-0020), automatisch doorgenummerd vanaf de eerstvolgende vrije — zonder naam of locatie, die stel je later per container in.
@@ -49,7 +49,7 @@ Onder Meer › Instellingen kies je een thema (Donker, Licht, Middernacht, Papie
 Alles blijft standaard op dit apparaat, in de lokale opslag van deze browser. Onder Instellingen › Opslag kun je duurzame opslag aanvragen, zodat de browser je gegevens niet automatisch opruimt bij plaatsgebrek. Onder Instellingen › Wijzigingsgeschiedenis zie je per record de laatste 20 wijzigingen. Je Anthropic API-sleutel (voor AI-herkenning) wordt alleen lokaal bewaard en rechtstreeks vanuit je browser naar Anthropic gestuurd — nooit via een eigen server. Onder Instellingen › Gevarenzone kun je alle locaties, containers en items in één keer wissen; instellingen zoals thema en sync blijven staan.
 
 ## Installeren en snelkoppelingen
-Voeg de app toe aan je startscherm voor een eigen app-icoon en volledig-scherm gebruik — Instellingen toont een installatieknop zodra dat kan. Vanaf het startscherm-icoon (lang indrukken) open je direct "Nieuwe container", Vastleggen of Zoeken. Je kunt ook foto's rechtstreeks vanuit je Foto's-app naar deze app delen — ze staan dan klaar in Vastleggen zodra je een container kiest. Zolang er containers of conceptitems op bevestiging wachten, toont het app-icoon een teller.
+Voeg de app toe aan je startscherm voor een eigen app-icoon en volledig-scherm gebruik — Instellingen toont een installatieknop zodra dat kan. Vanaf het startscherm-icoon (lang indrukken) open je direct Vastleggen of Zoeken. Je kunt ook foto's rechtstreeks vanuit je Foto's-app naar deze app delen — ze staan dan klaar in Vastleggen zodra je een container kiest. Zolang er containers of conceptitems op bevestiging wachten, toont het app-icoon een teller.
 `.trim();
 
 const en = `
@@ -72,7 +72,7 @@ Open a container to rename its code, edit its name/location/notes, add or remove
 - delete the container
 
 ## Search and filters
-The Search tab searches items, containers, and locations at once. With no search term, you browse all containers, grouped by location; filter by room, room + storage, or room + storage + section, and/or by category. The camera button switches to a photo view with one tile per photo — a container with several photos shows all of them, not just the first. The Items tab lists every item with category and state filters, a choice of sort order, and a stepper to adjust quantity directly.
+The Search tab searches items, containers, and locations at once. With no search term, you browse all containers, grouped by location; filter by room, room + storage, or room + storage + section, and/or by category. The camera button switches to a photo view with one tile per photo — a container with several photos shows all of them, not just the first. Open a container from a filtered list and arrows appear up top to jump to the previous or next container in that same list, without going back to Search. The Items tab lists every item with category and state filters, a choice of sort order, and a stepper to adjust quantity directly.
 
 ## Bulk-creating locations and containers
 Under More › Locations you manage the room/storage/section/name hierarchy; "Create a range" creates a run of them at once (e.g. "Shelf {n}" from 1 to 10). Under More › Bulk-create containers you do the same for container codes (e.g. BOX-0006 through BOX-0020), auto-numbered from the next free one — with no name or location yet, which you set later per container.
@@ -96,7 +96,7 @@ Under More › Settings you can choose a theme (Dark, Light, Midnight, Paper, or
 Everything stays on this device by default, in this browser's local storage. Under Settings › Storage you can request persistent storage, so the browser won't automatically clear your data when space runs low. Under Settings › Revision history you can see each record's last 20 changes. Your Anthropic API key (for AI identification) is stored locally only and sent straight from your browser to Anthropic — never through a server of ours. Under Settings › Danger zone you can wipe all locations, containers, and items at once; settings like theme and sync stay put.
 
 ## Installing and shortcuts
-Add the app to your home screen for its own app icon and full-screen use — Settings shows an install button once that's possible. From the home-screen icon (long-press) you can jump straight to "New container", Capture, or Search. You can also share photos straight from your Photos app into this app — they'll be waiting in Capture once you pick a container. As long as containers or draft items are waiting to be confirmed, the app icon shows a count.
+Add the app to your home screen for its own app icon and full-screen use — Settings shows an install button once that's possible. From the home-screen icon (long-press) you can jump straight to Capture or Search. You can also share photos straight from your Photos app into this app — they'll be waiting in Capture once you pick a container. As long as containers or draft items are waiting to be confirmed, the app icon shows a count.
 `.trim();
 
 export function helpContent(lang) {

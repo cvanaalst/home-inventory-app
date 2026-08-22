@@ -300,7 +300,21 @@ function wireNav() {
 }
 
 function initViews() {
-  const openContainer = (id) => pushView("view-detail", { containerId: id });
+  // siblingIds: the ordered list of container ids from whatever filtered
+  // list this container was opened from (Search's browse/search results),
+  // so Container Detail can offer prev/next through that same set. Every
+  // other caller (Items, Capture, Review) passes no second argument, so
+  // detail's nav bar simply stays hidden for them — a single-record open,
+  // not a step through a list.
+  const openContainer = (id, siblingIds) => pushView("view-detail", { containerId: id, siblingIds });
+  // Stepping to a sibling replaces the current history entry rather than
+  // pushing a new one — otherwise each prev/next tap would need its own
+  // "back" to undo, and a few steps in, "back" from Search would no
+  // longer be one tap away.
+  const navigateDetailSibling = (id, siblingIds) => {
+    history.replaceState({ view: "view-detail", fromTab: currentTab, params: { containerId: id, siblingIds } }, "", "#view-detail");
+    return viewControllers["view-detail"]?.show({ containerId: id, siblingIds });
+  };
   viewControllers["view-search"] = initSearchView({ onOpenContainer: openContainer });
   viewControllers["view-items"] = initItemsView({ onOpenContainer: openContainer });
   viewControllers["view-locations"] = initLocationsView();
@@ -308,7 +322,11 @@ function initViews() {
   viewControllers["view-labels"] = initLabelsView();
   viewControllers["view-capture"] = initCaptureView({ onOpenContainer: openContainer });
   viewControllers["view-review"] = initReviewView({ onOpenContainer: openContainer, onOpenSettings: () => pushView("view-settings") });
-  viewControllers["view-detail"] = initDetailView({ onDeleted: () => history.back(), onOpenSettings: () => pushView("view-settings") });
+  viewControllers["view-detail"] = initDetailView({
+    onDeleted: () => history.back(),
+    onOpenSettings: () => pushView("view-settings"),
+    onNavigateSibling: navigateDetailSibling,
+  });
   viewControllers["view-report"] = initReportView();
   viewControllers["view-help"] = initHelpView();
   viewControllers["view-settings"] = initSettingsView();
@@ -405,22 +423,13 @@ function offerUpdate(worker) {
 
 // ---------- special entry points (manifest shortcuts, share_target) ----------
 //
-// Neither of these is a plain tab hash — both need to land on a specific
-// tab AND trigger something the normal TAB_TARGETS hash routing has no
-// room for ("show this tab, then also open a form" / "...then also
-// attach these photos"). Handled once, at boot, only: nothing inside the
-// app ever navigates to either hash itself — they only ever arrive from
-// outside (the OS long-press shortcut menu, the share sheet).
+// Not a plain tab hash — it needs to land on a specific tab AND trigger
+// something the normal TAB_TARGETS hash routing has no room for ("show
+// this tab, then also attach these photos"). Handled once, at boot, only:
+// nothing inside the app ever navigates to this hash itself — it only
+// ever arrives from outside (the share sheet).
 
 async function routeSpecialEntry() {
-  if (location.hash === "#new-container") {
-    showView("view-search");
-    setActiveTab("view-search");
-    history.replaceState({ tab: "view-search" }, "", "#view-search");
-    await viewControllers["view-search"]?.show({});
-    viewControllers["view-search"]?.openNewForm?.();
-    return true;
-  }
   if (location.hash === "#shared-photos") {
     // sw.js's share_target handler already stored the shared blobs and
     // redirected here — this just hands their ids to Capture. Consumed

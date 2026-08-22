@@ -46,33 +46,6 @@
         <div class="row" style="margin-bottom: 12px">
           <select id="search-category-filter" class="grow"></select>
         </div>
-        <button class="btn btn-block" id="new-container-btn" data-i18n="search.newContainer" style="margin-bottom: 12px"></button>
-        <div id="new-container-form" class="card" hidden>
-          <h2 data-i18n="search.newContainer"></h2>
-          <div class="field-row">
-            <label class="field" style="max-width: 110px">
-              <span data-i18n="search.codePrefix"></span>
-              <input type="text" id="new-container-prefix" autocapitalize="characters" />
-            </label>
-            <label class="field grow">
-              <span data-i18n="detail.code"></span>
-              <input type="text" id="new-container-code" autocapitalize="characters" />
-            </label>
-          </div>
-          <label class="field">
-            <span data-i18n="detail.name"></span>
-            <input type="text" id="new-container-name" />
-          </label>
-          <label class="field">
-            <span data-i18n="detail.location"></span>
-            <select id="new-container-location"></select>
-          </label>
-          <div class="row">
-            <button class="btn btn-primary grow" id="new-container-create" data-i18n="action.create"></button>
-            <button class="btn" id="new-container-cancel" data-i18n="action.cancel"></button>
-          </div>
-          <p class="error-text" id="new-container-error" hidden></p>
-        </div>
         <div class="section-label" id="search-browse-label"></div>
         <div class="list" id="search-skeleton" hidden></div>
         <div class="list" id="search-container-list"></div>
@@ -266,6 +239,11 @@
         <input type="text" id="detail-code" class="detail-code-input" autocapitalize="characters" />
         <span id="detail-status-badge" class="badge" style="margin-left: auto"></span>
       </header>
+      <div class="detail-nav-bar" id="detail-nav-bar" hidden>
+        <button type="button" class="btn-icon" id="detail-nav-prev" data-i18n-aria="detail.navPrev"><span data-icon="chevronLeft"></span></button>
+        <span id="detail-nav-position" class="detail-nav-position"></span>
+        <button type="button" class="btn-icon" id="detail-nav-next" data-i18n-aria="detail.navNext"><span data-icon="chevronRight"></span></button>
+      </div>
       <div class="view-body" id="detail-body">
         <p class="empty-state" id="detail-not-found" hidden data-i18n="detail.notFound"></p>
         <div id="detail-content" hidden>

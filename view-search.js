@@ -1,9 +1,8 @@
 // Home view: text search across items/containers/locations; when the
-// search box is empty, browse containers filtered by location, plus manual
-// ("no photo") container creation.
+// search box is empty, browse containers filtered by location.
 
-import { queryItems, queryItemSet, getAllItems, getMeta, setMeta, putItem, makeRecord, nextCode, locationPath, getMedia } from "./db.js";
-import { populateLocationSelect, escapeHtml, statusBadgeClass, skeletonGate } from "./ui.js";
+import { queryItems, queryItemSet, getAllItems, locationPath, getMedia } from "./db.js";
+import { escapeHtml, statusBadgeClass, skeletonGate } from "./ui.js";
 import { t, tCount } from "./i18n.js";
 import { icon } from "./icons.js";
 
@@ -19,15 +18,6 @@ export function initSearchView({ onOpenContainer }) {
   const storageFilter = document.getElementById("search-storage-filter");
   const sectionFilter = document.getElementById("search-section-filter");
   const categoryFilter = document.getElementById("search-category-filter");
-  const newBtn = document.getElementById("new-container-btn");
-  const newForm = document.getElementById("new-container-form");
-  const prefixInput = document.getElementById("new-container-prefix");
-  const codeInput = document.getElementById("new-container-code");
-  const nameInput = document.getElementById("new-container-name");
-  const locationSelect = document.getElementById("new-container-location");
-  const createBtn = document.getElementById("new-container-create");
-  const cancelBtn = document.getElementById("new-container-cancel");
-  const errorEl = document.getElementById("new-container-error");
   const browseLabel = document.getElementById("search-browse-label");
   const browseList = document.getElementById("search-container-list");
   const browseEmpty = document.getElementById("search-browse-empty");
@@ -80,9 +70,19 @@ export function initSearchView({ onOpenContainer }) {
       </button>`;
   }
 
+  // Reads the currently rendered rows' ids once per render, in DOM order —
+  // i.e. exactly the order the user sees, whatever filter/sort/grouping
+  // produced it — so Container Detail can offer prev/next through this
+  // same set without re-deriving it itself. Deduped: photo-grid mode has
+  // one tile per photo, so a container with several photos would
+  // otherwise appear several times in a row.
   function wireContainerRows(root) {
+    const seen = new Set();
+    const ids = [...root.querySelectorAll("[data-container-id]")]
+      .map((el) => el.getAttribute("data-container-id"))
+      .filter((id) => (seen.has(id) ? false : (seen.add(id), true)));
     root.querySelectorAll("[data-container-id]").forEach((el) => {
-      el.addEventListener("click", () => onOpenContainer(el.getAttribute("data-container-id")));
+      el.addEventListener("click", () => onOpenContainer(el.getAttribute("data-container-id"), ids));
     });
   }
 
@@ -382,59 +382,6 @@ export function initSearchView({ onOpenContainer }) {
   sectionFilter.addEventListener("change", renderBrowse);
   categoryFilter.addEventListener("change", renderBrowse);
 
-  // ---------- new container ----------
-
-  async function openNewContainerForm() {
-    errorEl.hidden = true;
-    const { results: containers } = await queryItems({ type: "container" });
-    const prefix = prefixInput.value.trim() || "BOX";
-    codeInput.value = nextCode(containers.map((c) => c.code), prefix);
-    nameInput.value = "";
-    const lastLocationId = await getMeta("lastLocationId", "");
-    populateLocationSelect(locationSelect, locations, lastLocationId, { noneLabel: t("detail.noLocation") });
-    newForm.hidden = false;
-    newBtn.hidden = true;
-  }
-
-  function closeNewContainerForm() {
-    newForm.hidden = true;
-    newBtn.hidden = false;
-  }
-
-  newBtn.addEventListener("click", openNewContainerForm);
-  cancelBtn.addEventListener("click", closeNewContainerForm);
-
-  prefixInput.addEventListener("blur", async () => {
-    const { results: containers } = await queryItems({ type: "container" });
-    codeInput.value = nextCode(containers.map((c) => c.code), prefixInput.value.trim() || "BOX");
-  });
-
-  createBtn.addEventListener("click", async () => {
-    const code = codeInput.value.trim();
-    if (!code) {
-      errorEl.textContent = t("search.codeRequired");
-      errorEl.hidden = false;
-      return;
-    }
-    const { results: containers } = await queryItems({ type: "container" });
-    const record = makeRecord({
-      type: "container",
-      code,
-      title: nameInput.value.trim(),
-      status: "captured",
-      linkedIds: locationSelect.value ? [locationSelect.value] : [],
-    });
-    if (containers.some((c) => c.code === record.code)) {
-      errorEl.textContent = t("search.codeExists", { code: record.code });
-      errorEl.hidden = false;
-      return;
-    }
-    if (locationSelect.value) await setMeta("lastLocationId", locationSelect.value);
-    await putItem(record);
-    closeNewContainerForm();
-    onOpenContainer(record.id);
-  });
-
   // ---------- search mode ----------
 
   async function renderSearchResults(items, containers, locs) {
@@ -560,10 +507,5 @@ export function initSearchView({ onOpenContainer }) {
     }
   }
 
-  // Exposed for app.js's "New container" manifest shortcut (#new-container)
-  // — that's a boot-time-only entry point external to the normal tab
-  // router (BLUEPRINT.md's TAB_TARGETS hash routing has no room for "show
-  // this tab AND also open a form"), so it calls this directly after
-  // show() rather than going through any params show() itself accepts.
-  return { show, openNewForm: openNewContainerForm };
+  return { show };
 }

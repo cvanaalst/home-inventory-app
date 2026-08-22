@@ -10,9 +10,13 @@ import { icon } from "./icons.js";
 import { buildPrintReportHtml, formatFieldsSummary } from "./report.js";
 import { hasApiKey, identifyContainerPhotos } from "./ai.js";
 
-export function initDetailView({ onDeleted, onOpenSettings }) {
+export function initDetailView({ onDeleted, onOpenSettings, onNavigateSibling }) {
   const codeEl = document.getElementById("detail-code");
   const badgeEl = document.getElementById("detail-status-badge");
+  const navBar = document.getElementById("detail-nav-bar");
+  const navPrevBtn = document.getElementById("detail-nav-prev");
+  const navNextBtn = document.getElementById("detail-nav-next");
+  const navPositionEl = document.getElementById("detail-nav-position");
   const notFoundEl = document.getElementById("detail-not-found");
   const contentEl = document.getElementById("detail-content");
   const titleInput = document.getElementById("detail-title");
@@ -58,6 +62,11 @@ export function initDetailView({ onDeleted, onOpenSettings }) {
 
   let container = null;
   let locations = [];
+  // The ordered container ids of whatever filtered list (Search browse or
+  // search results) this container was opened from — empty when opened
+  // from anywhere else (Items, Capture, Review), which is exactly when
+  // the nav bar below stays hidden.
+  let siblingIds = [];
   let containers = [];
   let items = [];
   const photoUrls = new Set();
@@ -107,6 +116,27 @@ export function initDetailView({ onDeleted, onOpenSettings }) {
     badgeEl.textContent = container.status;
     badgeEl.className = statusBadgeClass(container.status);
   }
+
+  /** Prev/next through the filtered list this container was opened from.
+   * Hidden entirely for a single-record open (siblingIds.length < 2) —
+   * showing disabled controls for a set of one would just be noise. */
+  function renderNavBar() {
+    const idx = siblingIds.indexOf(container.id);
+    navBar.hidden = siblingIds.length < 2 || idx === -1;
+    if (navBar.hidden) return;
+    navPrevBtn.disabled = idx <= 0;
+    navNextBtn.disabled = idx >= siblingIds.length - 1;
+    navPositionEl.textContent = `${idx + 1} / ${siblingIds.length}`;
+  }
+
+  navPrevBtn.addEventListener("click", () => {
+    const idx = siblingIds.indexOf(container.id);
+    if (idx > 0) onNavigateSibling(siblingIds[idx - 1], siblingIds);
+  });
+  navNextBtn.addEventListener("click", () => {
+    const idx = siblingIds.indexOf(container.id);
+    if (idx !== -1 && idx < siblingIds.length - 1) onNavigateSibling(siblingIds[idx + 1], siblingIds);
+  });
 
   function renderFields() {
     titleInput.value = container.title;
@@ -780,14 +810,16 @@ export function initDetailView({ onDeleted, onOpenSettings }) {
     });
   });
 
-  async function show({ containerId }) {
+  async function show({ containerId, siblingIds: siblings = [] }) {
     if (!containerId) return;
     const ok = await reload(containerId);
     if (!ok) return;
+    siblingIds = siblings;
     codeErrorEl.hidden = true;
     closeCopyForm();
     photoAiToggle.checked = true;
     renderHeader();
+    renderNavBar();
     renderFields();
     await renderPhotos();
     await renderItems();

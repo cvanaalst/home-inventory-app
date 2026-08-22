@@ -335,6 +335,37 @@ button {
   border-bottom-color: var(--accent);
 }
 
+/* Prev/next through the filtered list a container was opened from —
+   hidden entirely when there's no such list (see view-detail.js's
+   renderNavBar()), so it never appears for a single-record open. */
+.detail-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* .btn-icon's negative left margin exists to flush it against a header's
+   left edge — not applicable to a pair of buttons centered in their own
+   bar, so cancel it here. */
+.detail-nav-bar .btn-icon {
+  margin-left: 0;
+}
+
+.detail-nav-bar .btn-icon[disabled] {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.detail-nav-position {
+  min-width: 64px;
+  text-align: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
 .view-body {
   display: flex;
   flex-direction: column;
