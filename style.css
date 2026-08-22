@@ -562,6 +562,58 @@ button {
   gap: 8px;
 }
 
+/* Container picker (Capture): a plain filterable list, not a native
+   <datalist> — iOS/iPadOS Safari doesn't render datalist suggestions at
+   all, which would make this silently non-functional on exactly the
+   devices it needs to work on. */
+.field-combo {
+  position: relative;
+}
+
+.combo-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 5;
+  margin-top: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.combo-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.combo-option:last-child {
+  border-bottom: none;
+}
+
+.combo-option:hover,
+.combo-option:focus {
+  background: var(--surface);
+}
+
+.combo-empty {
+  padding: 14px 12px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  text-align: center;
+}
+
 .field-row .field {
   flex: 1;
 }

@@ -80,9 +80,10 @@
     <section id="view-capture" class="view view-tab" data-view hidden>
       <h1 data-i18n="view.capture.title"></h1>
 
-      <label class="field">
+      <label class="field field-combo">
         <span data-i18n="capture.selectContainer"></span>
-        <select id="capture-container-select"></select>
+        <input type="text" id="capture-container-input" autocomplete="off" autocapitalize="characters" data-i18n-placeholder="capture.searchContainer" />
+        <div class="combo-list" id="capture-container-list" hidden></div>
       </label>
       <button class="btn btn-block" id="capture-new-container-btn" data-i18n="capture.newContainer" style="margin: 8px 0 12px"></button>
       <div id="capture-new-container-form" class="card" hidden>

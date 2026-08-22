@@ -9,7 +9,8 @@ import { toast, populateLocationSelect, escapeHtml, resizeImageToBlob } from "./
 import { t } from "./i18n.js";
 
 export function initCaptureView({ onOpenContainer }) {
-  const containerSelect = document.getElementById("capture-container-select");
+  const comboInput = document.getElementById("capture-container-input");
+  const comboList = document.getElementById("capture-container-list");
   const newBtn = document.getElementById("capture-new-container-btn");
   const newForm = document.getElementById("capture-new-container-form");
   const prefixInput = document.getElementById("capture-new-prefix");
@@ -49,20 +50,44 @@ export function initCaptureView({ onOpenContainer }) {
     return c.title ? `${c.code} — ${c.title}` : c.code;
   }
 
-  function refreshContainerSelect() {
-    const current = containerSelect.value;
-    containerSelect.innerHTML = "";
-    const none = document.createElement("option");
-    none.value = "";
-    none.textContent = t("capture.selectContainer");
-    containerSelect.appendChild(none);
-    for (const c of [...containers].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))) {
-      const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.textContent = containerLabel(c);
-      containerSelect.appendChild(opt);
+  // Capped so typing something too broad (or an empty/just-focused field)
+  // can't dump hundreds of rows into the DOM at once — "cont-0" narrowing
+  // 100+ containers down to a handful is the whole point of this filter,
+  // but the empty-query "browse recent" case needs a cap too.
+  const COMBO_MAX_RESULTS = 30;
+
+  function matchingContainers(query) {
+    const q = query.trim().toLowerCase();
+    const sorted = [...containers].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    const matches = q ? sorted.filter((c) => c.code.toLowerCase().includes(q) || c.title.toLowerCase().includes(q)) : sorted;
+    return matches.slice(0, COMBO_MAX_RESULTS);
+  }
+
+  function renderComboList(query) {
+    const matches = matchingContainers(query);
+    if (!matches.length) {
+      comboList.innerHTML = `<p class="combo-empty">${escapeHtml(t("search.noResults"))}</p>`;
+    } else {
+      comboList.innerHTML = matches
+        .map((c) => `<button type="button" class="combo-option" data-container-id="${c.id}">${escapeHtml(containerLabel(c))}</button>`)
+        .join("");
+      comboList.querySelectorAll("[data-container-id]").forEach((btn) => {
+        btn.addEventListener("click", () => pickContainer(btn.getAttribute("data-container-id")));
+      });
     }
-    containerSelect.value = current && containers.some((c) => c.id === current) ? current : "";
+    comboList.hidden = false;
+  }
+
+  function closeComboList() {
+    comboList.hidden = true;
+  }
+
+  async function pickContainer(id) {
+    const c = containers.find((x) => x.id === id);
+    if (!c) return;
+    comboInput.value = containerLabel(c);
+    closeComboList();
+    await selectContainer(c.id);
   }
 
   async function selectContainer(id) {
@@ -178,14 +203,39 @@ export function initCaptureView({ onOpenContainer }) {
     if (locationSelect.value) await setMeta("lastLocationId", locationSelect.value);
     const saved = await putItem(record);
     containers.push(saved);
-    refreshContainerSelect();
-    containerSelect.value = saved.id;
+    comboInput.value = containerLabel(saved);
     closeNewContainerForm();
     await selectContainer(saved.id);
     toast(t("capture.containerCreated", { code: saved.code }), "info");
   });
 
-  containerSelect.addEventListener("change", () => selectContainer(containerSelect.value));
+  comboInput.addEventListener("focus", () => renderComboList(comboInput.value));
+
+  comboInput.addEventListener("input", () => {
+    // Typing away from the currently-selected container's exact label
+    // deselects it — the field's text always mirrors "what's selected",
+    // same as the native <select> it replaced, rather than leaving the
+    // photo section pointed at a container the field no longer names.
+    if (container && comboInput.value !== containerLabel(container)) selectContainer(null);
+    renderComboList(comboInput.value);
+  });
+
+  comboInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeComboList();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const [first] = matchingContainers(comboInput.value);
+      if (first) pickContainer(first.id);
+    }
+  });
+
+  // Closed on outside pointerdown rather than the input's own blur — blur
+  // fires before a click on a .combo-option registers, which would close
+  // the list out from under the very tap meant to pick something from it.
+  document.addEventListener("pointerdown", (e) => {
+    if (!comboList.hidden && !e.target.closest(".field-combo")) closeComboList();
+  });
 
   addBtn.addEventListener("click", () => photoInput.click());
 
@@ -240,14 +290,12 @@ export function initCaptureView({ onOpenContainer }) {
     ]);
     containers = loadedContainers;
     locations = loadedLocations;
-    refreshContainerSelect();
     // Always land on "choose a container", not whatever was left selected
-    // from the last time this tab was open — refreshContainerSelect() on
-    // its own would otherwise restore it, since the <select> itself still
-    // holds that value from before.
-    containerSelect.value = "";
+    // from the last time this tab was open.
+    comboInput.value = "";
+    closeComboList();
     closeNewContainerForm();
-    await selectContainer(containerSelect.value);
+    await selectContainer(null);
   }
 
   /** Called by app.js right after show(), when boot() detects a

@@ -888,6 +888,8 @@ Apply the same to any background re-fetch that writes into the live cache.
 
 **Sync (continued)** 37. **A "wipe all data" feature can be silently undone by the very next sync.** `store.clear()` on the local items store leaves zero trace a record ever existed — to the merge engine, "absent locally" is indistinguishable from "never synced yet," so the next Sync pulls every wiped record straight back down from the remote, unnoticed, and a bulk-recreate afterward using the same names/codes just produces duplicates alongside the resurrected originals. A full wipe has to tombstone every record — the same shape a single "delete forever" already produces (content blanked, `deletedAt`/`purgedAt` set) — rather than hard-deleting the store, since only a tombstone reliably wins a merge regardless of timestamp. Reproduce the fix with the real merge function before trusting it: feed it a tombstoned local record against a stale-but-live remote copy and confirm the tombstone wins.
 
+**iOS / Safari (continued)** 38. **`<input list>` + `<datalist>` shows no suggestions at all on iOS/iPadOS Safari** — a long-standing WebKit gap, not a markup bug. The entries exist in the DOM and work fine on desktop Safari/Chrome, but mobile Safari’s keyboard never surfaces them, so any "type to filter" field meant to actually work on iPhone/iPad needs a hand-built dropdown (a plain JS-rendered, filtered list of buttons, shown/hidden via `hidden`) instead of `<datalist>`. This app’s category and location fields already use `<datalist>` and are silently non-functional on exactly that basis on the user’s own iPhone/iPad — worth switching to the same pattern if it’s ever raised.
+
 ## 14. App brief — fill this in
 
 > This is the only section that changes per project. Be concrete; vagueness here becomes churn later.
@@ -1286,6 +1288,8 @@ A single `tests.html` that imports the real modules and runs assertions in the b
 - **Route special entry points once, at boot, before normal tab routing.** A manifest shortcut or a share-target redirect needs to land on a specific tab *and* trigger something the normal hash-based router has no room for ("show this tab AND open a form"). Handle both in one function that runs before the router's usual fallback and reports whether it took over; nothing inside the app should ever navigate to either hash itself — they only ever arrive from outside.
 
 - **The app badge is the one notification-like signal every platform actually shows, with no push infrastructure and no permission prompt.** `navigator.setAppBadge()` on a plain count of whatever "unfinished" means for the app (drafts awaiting confirmation, items needing review) costs one function called from every router entry point.
+
+- **`<datalist>` is not a mobile-safe autocomplete.** iOS/iPadOS Safari never shows its suggestions, even though the markup is valid and works on desktop — build a plain JS-rendered, filtered list of buttons instead for anything that needs to work on a phone or tablet. (§13)
 
 ### 19.9 Performance at scale
 

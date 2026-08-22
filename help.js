@@ -12,7 +12,7 @@ Voorraad is een app om bij te houden wat er in je containers (dozen, bakken, lad
 Een **locatie** is een plek in huis: ruimte, opslagplek, sectie en optioneel een naam — bijvoorbeeld "Bureau Chris › Hoog Rek Links › Plank 3". Een **container** is een doos of bak met een code (zoals BOX-0001) die aan zo'n locatie hangt. Een **item** is één soort spullen in die container, met een aantal, een categorie, en optioneel een link en losse specs (extra veld/waarde-paren).
 
 ## Een container vastleggen
-Het tabblad Vastleggen opent altijd met "Kies container" — kies een bestaande container of maak direct een nieuwe aan (zonder dat je meteen een foto nodig hebt). Voeg foto's toe met "Foto's toevoegen": je kunt zowel een nieuwe foto maken als een bestaande uit je fotobibliotheek kiezen. Staat "Ook AI laten herkennen" aan, dan komt de container in de wachtrij van het tabblad Controleren.
+Het tabblad Vastleggen opent altijd met "Kies container" — typ een deel van een code of naam om de lijst te filteren, kies een bestaande container, of maak direct een nieuwe aan (zonder dat je meteen een foto nodig hebt). Voeg foto's toe met "Foto's toevoegen": je kunt zowel een nieuwe foto maken als een bestaande uit je fotobibliotheek kiezen. Staat "Ook AI laten herkennen" aan, dan komt de container in de wachtrij van het tabblad Controleren.
 
 ## Automatisch herkennen (AI)
 Het tabblad Controleren toont containers die op AI-herkenning wachten. Selecteer er één of meerdere en klik "Herkennen" — de geschatte kosten worden getoond voordat je bevestigt. De AI stelt conceptitems voor (naam, aantal, categorie); die verschijnen onderin als concepten totdat je ze bevestigt. Je kunt dit ook los per container doen: in het containerscherm staat dezelfde "Herkennen"-knop zodra er foto's aan die container hangen. AI-herkenning vereist een Anthropic API-sleutel (zie Instellingen).
@@ -60,7 +60,7 @@ Inventory is an app for tracking what's inside your containers (boxes, bins, dra
 A **location** is a place in your home: room, storage, section, and an optional name — for example "Bureau Chris › Hoog Rek Links › Plank 3". A **container** is a box or bin with a code (like BOX-0001) that belongs to a location. An **item** is one kind of thing in that container, with a quantity, a category, and optionally a link and freeform specs (extra field/value pairs).
 
 ## Capturing a container
-The Capture tab always opens on "Choose container" — pick an existing one or create a new one right away, no photo required first. Add photos with "Add photos": you can either take a new one or pick an existing one from your photo library. If "Also run AI recognition" is on, the container gets added to the Review tab's queue.
+The Capture tab always opens on "Choose container" — type part of a code or name to filter the list, pick an existing one, or create a new one right away, no photo required first. Add photos with "Add photos": you can either take a new one or pick an existing one from your photo library. If "Also run AI recognition" is on, the container gets added to the Review tab's queue.
 
 ## Automatic recognition (AI)
 The Review tab lists containers waiting on AI identification. Select one or more and click "Identify" — the estimated cost is shown before you confirm. The AI proposes draft items (name, quantity, category); those sit below as drafts until you confirm them. You can also run this per-container: the container screen has the same "Identify" button once it has photos attached. AI identification needs an Anthropic API key (see Settings).

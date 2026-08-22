@@ -21,6 +21,7 @@ const dict = {
     "view.review.title": "Controleren",
 
     "capture.selectContainer": "Kies container",
+    "capture.searchContainer": "Typ om te zoeken (code of naam)…",
     "capture.newContainer": "＋ Nieuwe container",
     "capture.addPhotos": "＋ Foto's toevoegen",
     "capture.photoEmpty": "Nog geen foto's voor deze container.",
@@ -363,6 +364,7 @@ const dict = {
     "view.review.title": "Review",
 
     "capture.selectContainer": "Choose container",
+    "capture.searchContainer": "Type to search (code or name)…",
     "capture.newContainer": "＋ New container",
     "capture.addPhotos": "＋ Add photos",
     "capture.photoEmpty": "No photos for this container yet.",
