@@ -1573,12 +1573,21 @@ textarea {
     padding: 15.2mm 0 0 3.4mm;
   }
 
+  /* Calibrated against a real printed+measured sheet, not the reference
+     template alone (see BLUEPRINT.md §13) — the template's cell size
+     (38.1x21.2mm) was accurate, but the true pitch between labels runs
+     ~0.46mm/row and ~0.75mm/column more than the template implied, and
+     the true top margin is 1.5mm more than the template's stated value.
+     A one-time offset would show as a constant error on every row; this
+     was a GROWING error (3mm at row 1, 8.5mm at row 13), which is what a
+     wrong pitch looks like, not a wrong margin — the two are fixed
+     independently here. */
   .label-sheet.fmt-l7651 {
     grid-template-columns: repeat(5, 38.1mm);
-    grid-auto-rows: 21.2mm;
-    column-gap: 2.5mm;
+    grid-auto-rows: 21.66mm;
+    column-gap: 3.25mm;
     row-gap: 0;
-    padding: 10.9mm 0 0 4.7mm;
+    padding: 12.4mm 0 0 4.7mm;
   }
 
   /* An already-used position on a partially-printed sheet — occupies a
