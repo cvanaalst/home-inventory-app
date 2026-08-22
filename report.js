@@ -290,11 +290,21 @@ export const LABEL_FORMATS = [
   { id: "l7651", page: "a4", perSheet: 65 },
 ];
 
-/** One small cut-out card per container — code, name, location path.
- * Deliberately no QR: a printed code that links back into the app opens in
- * Safari, not the installed PWA, on iOS (BLUEPRINT.md §13.3) — a link is
- * the wrong mechanism here, not just an omitted nice-to-have. `containers`
- * should already be scoped to whatever the caller wants printed.
+/** One small cut-out card per container — code, name, notes. No location:
+ * a label lives on the physical container itself, so printing where it
+ * already sits is redundant; notes are the more useful thing to have on
+ * hand. No QR either — a printed code that links back into the app opens
+ * in Safari, not the installed PWA, on iOS (BLUEPRINT.md §13.3) — a link
+ * is the wrong mechanism here, not just an omitted nice-to-have.
+ * `containers` should already be scoped to whatever the caller wants
+ * printed.
+ *
+ * Notes are only shown "if there's room": the real Avery formats give
+ * each card a fixed height with `overflow: hidden` (style.css), so a long
+ * note simply gets clipped by the browser rather than pushing the card's
+ * physical size past the sticker it's cut for — no line-counting needed,
+ * the existing per-format CSS already does this. The unconstrained
+ * "generic" format has no such cap, so notes always show there in full.
  *
  * `format` picks a LABEL_FORMATS id; "generic" (the default) keeps the
  * original auto-fill grid on plain paper. Anything else adds a
@@ -310,20 +320,18 @@ export const LABEL_FORMATS = [
  * Blank cells are plain empty divs (no border, no content) — the grid's
  * own column count does the row-wrapping, so this works the same way
  * for every format including generic. */
-export function buildLabelSheetHtml({ containers, locations, t, format = "generic", skipCount = 0 }) {
-  const locationsById = new Map(locations.map((l) => [l.id, l]));
+export function buildLabelSheetHtml({ containers, t, format = "generic", skipCount = 0 }) {
   const sorted = [...containers].filter((c) => !c.deletedAt).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: "base" }));
 
   const cards = sorted
-    .map((c) => {
-      const path = locationPathOf(locationsById.get((c.linkedIds || [])[0]));
-      return `
+    .map(
+      (c) => `
       <div class="label-card">
         <div class="label-code">${escapeHtml(c.code)}</div>
         ${c.title ? `<div class="label-name">${escapeHtml(c.title)}</div>` : ""}
-        ${path ? `<div class="label-path">${escapeHtml(path)}</div>` : ""}
-      </div>`;
-    })
+        ${c.comment ? `<div class="label-notes">${escapeHtml(c.comment)}</div>` : ""}
+      </div>`,
+    )
     .join("");
 
   const clampedSkip = Math.max(0, Math.floor(skipCount) || 0);

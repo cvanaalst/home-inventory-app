@@ -601,38 +601,38 @@ section("buildPrintReportHtml");
 section("buildLabelSheetHtml");
 {
   const t = (key) => key;
-  const locations = [{ id: "l1", type: "location", room: "Office", storage: "Shelf", section: "", title: "" }];
   const containers = [
-    { id: "c1", type: "container", code: "BOX-002", title: "Cables", linkedIds: ["l1"] },
-    { id: "c2", type: "container", code: "BOX-001", title: "", linkedIds: [] },
+    { id: "c1", type: "container", code: "BOX-002", title: "Cables", comment: "Fragile — keep dry", linkedIds: ["l1"] },
+    { id: "c2", type: "container", code: "BOX-001", title: "", comment: "", linkedIds: [] },
   ];
-  const html = report.buildLabelSheetHtml({ containers, locations, t });
+  const html = report.buildLabelSheetHtml({ containers, t });
   assertTrue(html.includes("BOX-001") && html.includes("BOX-002"), "every passed-in container gets a label card");
   assertTrue(html.indexOf("BOX-001") < html.indexOf("BOX-002"), "cards are sorted by code, not by input order — the caller passes whatever was checked in the UI, in whatever order that happened to be");
   assertTrue(html.includes("Cables"), "a container with a title shows it on the label");
-  assertTrue(html.includes("Office"), "a container with a location shows the location path on the label");
+  assertTrue(html.includes("Fragile — keep dry"), "a container with notes shows them on the label — location is deliberately never printed here (it lives on the container itself)");
+  assertTrue(!html.includes("label-path"), "no location line is ever printed on a label, even when the container has one");
   const box001Card = html.slice(html.indexOf("BOX-001"), html.indexOf("BOX-002"));
-  assertTrue(!box001Card.includes("label-name") && !box001Card.includes("label-path"), "a container with no title and no location omits those lines entirely rather than printing an empty label-name/label-path div");
+  assertTrue(!box001Card.includes("label-name") && !box001Card.includes("label-notes"), "a container with no title and no notes omits those lines entirely rather than printing an empty label-name/label-notes div");
 }
 {
   const t = (key) => key;
-  const html = report.buildLabelSheetHtml({ containers: [], locations: [], t });
+  const html = report.buildLabelSheetHtml({ containers: [], t });
   assertTrue(html.includes("report.print.empty"), "printing zero selected containers renders the translated empty state rather than an empty grid");
 }
 {
   const t = (key) => key;
   const deleted = [{ id: "c1", type: "container", code: "GONE-001", deletedAt: "2026-01-01T00:00:00.000Z", linkedIds: [] }];
-  const html = report.buildLabelSheetHtml({ containers: deleted, locations: [], t });
+  const html = report.buildLabelSheetHtml({ containers: deleted, t });
   assertTrue(!html.includes("GONE-001"), "a soft-deleted container never gets a label printed, even if a stale selection somehow included it");
 }
 {
   const t = (key) => key;
   const containers = [{ id: "c1", type: "container", code: "BOX-001", linkedIds: [] }];
-  const defaultHtml = report.buildLabelSheetHtml({ containers, locations: [], t });
+  const defaultHtml = report.buildLabelSheetHtml({ containers, t });
   assertTrue(!defaultHtml.includes("fmt-"), "no format argument keeps the original generic auto-fill layout — no fmt-* class at all");
-  const genericHtml = report.buildLabelSheetHtml({ containers, locations: [], t, format: "generic" });
+  const genericHtml = report.buildLabelSheetHtml({ containers, t, format: "generic" });
   assertTrue(!genericHtml.includes("fmt-"), "an explicit format:\"generic\" is the same as omitting it — still no fmt-* class");
-  const l7160Html = report.buildLabelSheetHtml({ containers, locations: [], t, format: "l7160" });
+  const l7160Html = report.buildLabelSheetHtml({ containers, t, format: "l7160" });
   assertTrue(l7160Html.includes('class="label-sheet fmt-l7160"'), "a real sheet format adds its fmt-<id> class so style.css can size the grid to that sheet's exact label dimensions");
   assertEqual(report.LABEL_FORMATS.find((f) => f.id === "l7160").page, "a4", "the L7160 registry entry is flagged for an A4 print page — printing it on the wrong page size would misalign every label, not just look odd");
   assertEqual(report.LABEL_FORMATS.map((f) => f.id), ["generic", "l7160", "l7163", "l7651"], "only A4 formats are offered — no Letter formats to pick from");
@@ -640,15 +640,15 @@ section("buildLabelSheetHtml");
 {
   const t = (key) => key;
   const containers = [{ id: "c1", type: "container", code: "BOX-001", linkedIds: [] }];
-  const noSkipHtml = report.buildLabelSheetHtml({ containers, locations: [], t });
+  const noSkipHtml = report.buildLabelSheetHtml({ containers, t });
   assertTrue(!noSkipHtml.includes("label-blank"), "skipCount defaults to 0 — no blank cells at all");
-  const skippedHtml = report.buildLabelSheetHtml({ containers, locations: [], t, skipCount: 3 });
+  const skippedHtml = report.buildLabelSheetHtml({ containers, t, skipCount: 3 });
   const blankCount = (skippedHtml.match(/label-blank/g) || []).length;
   assertEqual(blankCount, 3, "skipCount:3 renders exactly 3 blank grid cells");
   assertTrue(skippedHtml.indexOf("label-blank") < skippedHtml.indexOf("BOX-001"), "blank cells come before the real cards, so the grid's own column wrapping lands the real cards after the already-used positions");
-  const negativeHtml = report.buildLabelSheetHtml({ containers, locations: [], t, skipCount: -5 });
+  const negativeHtml = report.buildLabelSheetHtml({ containers, t, skipCount: -5 });
   assertTrue(!negativeHtml.includes("label-blank"), "a negative skipCount clamps to 0 rather than throwing or producing a negative repeat count");
-  const emptySkipHtml = report.buildLabelSheetHtml({ containers: [], locations: [], t, skipCount: 4 });
+  const emptySkipHtml = report.buildLabelSheetHtml({ containers: [], t, skipCount: 4 });
   assertTrue(!emptySkipHtml.includes("label-blank"), "skipCount is ignored when there's nothing to print — blank cells with no real labels after them would be pointless");
 }
 

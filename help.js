@@ -31,10 +31,10 @@ Onder Meer › Locaties beheer je de hiërarchie van ruimte, opslagplek, sectie 
 
 
 ## Labels afdrukken
-Onder Meer › Labels selecteer je containers en kies je een velformaat (een aantal Avery-formaten of gewoon blanco papier). Heb je al een deel van een vel gebruikt? Vul in hoeveel labels je wilt overslaan — de nieuwe labels beginnen na die posities, zodat je geen half vel hoeft weg te gooien.
+Onder Meer › Labels selecteer je containers en kies je een velformaat (een aantal Avery-formaten of gewoon blanco papier). Een label toont code, naam en notities (als er ruimte is) — nooit de locatie, want het label zit op de container zelf. Heb je al een deel van een vel gebruikt? Vul in hoeveel labels je wilt overslaan — de nieuwe labels beginnen na die posities, zodat je geen half vel hoeft weg te gooien.
 
 ## Inzichten
-Onder Meer › Inzichten zie je totalen (locaties, containers, items, vastgepind, conceptitems), een verdeling per categorie, en nieuwe items per week. Je kunt je volledige gegevens exporteren als JSON (volledige back-up) of CSV (spreadsheet), en een afdrukbaar overzicht printen — dit gebeurt allemaal volledig lokaal.
+Onder Meer › Inzichten zie je totalen (locaties, containers, items, vastgepind, conceptitems), een verdeling per categorie, en nieuwe items per week. Je kunt je volledige gegevens exporteren als JSON (volledige back-up) of CSV (spreadsheet), en een afdrukbaar overzicht printen — dit gebeurt allemaal volledig lokaal. Het overzicht slaat lege containers over; print je één specifieke container vanuit die container zelf, dan wordt die altijd afgedrukt, ook als hij leeg is.
 
 ## Verwijderen en de prullenbak
 Verwijderen toont eerst een melding onderaan met "Ongedaan maken" — pas als die melding verdwijnt, wordt iets echt verwijderd. Een container verwijderen verwijdert ook de items erin. Onder Meer › Onlangs verwijderd vind je alles wat daarna nog is verwijderd: herstel het, of verwijder het voorgoed.
@@ -78,10 +78,10 @@ The Search tab searches items, containers, and locations at once. With no search
 Under More › Locations you manage the room/storage/section/name hierarchy; "Create a range" creates a run of them at once (e.g. "Shelf {n}" from 1 to 10). Under More › Bulk-create containers you do the same for container codes (e.g. BOX-0006 through BOX-0020), auto-numbered from the next free one — with no name or location yet, which you set later per container.
 
 ## Printing labels
-Under More › Labels you select containers and pick a sheet format (a handful of Avery formats, or plain blank paper). Already used part of a sheet? Enter how many labels to skip — the new ones start right after those positions, so you don't have to throw away a half-used sheet.
+Under More › Labels you select containers and pick a sheet format (a handful of Avery formats, or plain blank paper). A label shows code, name, and notes (if there's room) — never the location, since the label lives on the container itself. Already used part of a sheet? Enter how many labels to skip — the new ones start right after those positions, so you don't have to throw away a half-used sheet.
 
 ## Insights
-Under More › Insights you see totals (locations, containers, items, pinned, drafted items), a breakdown by category, and new items per week. You can export your full data as JSON (a complete backup) or CSV (for a spreadsheet), and print an overview — all of this happens entirely on your device.
+Under More › Insights you see totals (locations, containers, items, pinned, drafted items), a breakdown by category, and new items per week. You can export your full data as JSON (a complete backup) or CSV (for a spreadsheet), and print an overview — all of this happens entirely on your device. The overview skips empty containers; printing one specific container from that container itself always prints it, even if it's empty.
 
 ## Deleting things and the trash
 Deleting shows a toast at the bottom with an "Undo" button — only after it disappears is anything really deleted. Deleting a container also deletes the items inside it. Under More › Recently deleted you'll find anything deleted after that: restore it, or delete it forever.

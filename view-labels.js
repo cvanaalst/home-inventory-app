@@ -1,5 +1,5 @@
-// Printable label sheets: human-readable (code, name, location path) —
-// no QR, per the iOS separate-storage problem (BLUEPRINT.md §13.3). Every
+// Printable label sheets: human-readable (code, name, notes) — no QR, per
+// the iOS separate-storage problem (BLUEPRINT.md §13.3). Every
 // container is pre-selected on open (the common case is "print everything
 // that doesn't have a label yet"), with individual and select-all toggles
 // to narrow it down.
@@ -92,7 +92,7 @@ export function initLabelsView() {
     const formatEntry = LABEL_FORMATS.find((f) => f.id === format);
     setPrintPageSize(formatEntry?.page ? formatEntry.page : null);
     const skipCount = Math.max(0, Math.floor(Number(skipInput.value)) || 0);
-    const html = buildLabelSheetHtml({ containers: chosen, locations, t, format, skipCount });
+    const html = buildLabelSheetHtml({ containers: chosen, t, format, skipCount });
     document.getElementById("print-root").innerHTML = html;
     window.print();
   });

@@ -116,7 +116,16 @@ export function initReportView() {
   });
 
   els.printBtn.addEventListener("click", async () => {
-    const containers = allItems.filter((r) => r.type === "container");
+    // Print overview skips empty containers — a container with nothing in
+    // it yet is dead weight on a printed inventory, unlike the single-
+    // container print button (view-detail.js), which always prints
+    // whatever container you explicitly chose, empty or not.
+    const containerIdsWithItems = new Set();
+    for (const r of allItems) {
+      if (r.type !== "item" || r.deletedAt) continue;
+      for (const id of r.linkedIds || []) containerIdsWithItems.add(id);
+    }
+    const containers = allItems.filter((r) => r.type === "container" && containerIdsWithItems.has(r.id));
     const locations = allItems.filter((r) => r.type === "location");
     // Object URLs deliberately outlive this handler unrevoked — a one-shot
     // print action over a handful of thumbnails, not a hot loop, so the
